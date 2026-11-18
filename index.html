@@ -1,0 +1,2266 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visão IA — Protótipo</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --cartao: #0f151c;
+    --painel: rgba(8, 12, 18, 0.78);
+    --linha: #223040;
+    --texto: #e6edf3;
+    --apagado: #8b98a5;
+    --verde: #22c55e;
+    --vermelho: #ef4444;
+    --ambar: #f59e0b;
+    --azul: #38bdf8;
+    --cinza: #64748b;
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; height: 100vh; overflow: hidden; background: var(--bg); color: var(--texto);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;
+  }
+  header { flex: none; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  h1 { margin: 0; font: 600 14px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+  .sub { font: 12px var(--mono); color: var(--apagado); }
+
+  .conteudo { flex: 1; min-height: 0; position: relative; display: flex; }
+  main { flex: 1; min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 370px; gap: 14px; }
+
+  /* ---------- Abas ---------- */
+  .abas { display: inline-flex; border: 1px solid var(--linha); border-radius: 8px; overflow: hidden; }
+  .abas button {
+    font: 600 12px var(--mono); letter-spacing: .08em; padding: 6px 14px; border: 0; cursor: pointer;
+    background: var(--cartao); color: var(--apagado);
+  }
+  .abas button.ativo { background: #1b2a39; color: var(--texto); }
+
+  /* ---------- Fichas ---------- */
+  #fichas { position: absolute; inset: 0; z-index: 5; display: none; overflow: auto; background: var(--bg); }
+  body.ver-fichas #fichas { display: block; }
+  .fichas-topo { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+  .fichas-topo h2 { margin: 0; font: 700 22px var(--mono); letter-spacing: .06em; }
+  .fichas-topo p { margin: 4px 0 0; color: var(--apagado); font-size: 13px; max-width: 70ch; }
+  .ajuste-luz {
+    display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border-radius: 10px;
+    background: var(--cartao); border: 1px solid var(--linha); font-size: 13px; color: var(--apagado);
+  }
+  .ajuste-luz label { display: flex; align-items: center; gap: 8px; color: var(--texto); font-weight: 600; }
+  .ajuste-luz input { width: 220px; }
+  .ajuste-luz output { font-family: var(--mono); min-width: 4ch; }
+  .ajuste-luz small { font: 11px var(--mono); }
+  .fichas-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 14px; }
+  .ficha {
+    display: flex; gap: 18px; padding: 16px; border-radius: 12px;
+    background: var(--cartao); border: 1px solid var(--linha); transition: border-color .3s, box-shadow .3s;
+  }
+  .ficha.presente { border-color: var(--verde); box-shadow: 0 0 0 1px rgba(34,197,94,.3); }
+  .ficha .foto { width: 140px; height: 140px; border-radius: 10px; object-fit: cover; flex: none; background: #000; border: 1px solid var(--linha); }
+  .ficha-corpo { flex: 1; min-width: 0; }
+  .ficha-cabecalho { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .ficha h3 { margin: 0; font: 700 24px var(--mono); letter-spacing: .04em; white-space: nowrap; }
+  .ficha .status { font: 11px var(--mono); color: var(--apagado); white-space: nowrap; }
+  .ficha.presente .status { color: var(--verde); }
+  .traco {
+    display: grid; grid-template-columns: 62px 22px minmax(0, 1fr) 72px; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid #18222d;
+  }
+  .traco .rotulo { font: 11px var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--apagado); }
+  .traco .cor { width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(255,255,255,.25); }
+  .traco .cor.vazia { border-style: dashed; background: transparent; }
+  .traco[data-traco="idade"] .cor, .traco[data-traco="genero"] .cor, .traco[data-traco="roupa"] .cor { visibility: hidden; }
+  .traco .valor { font-size: 17px; font-weight: 600; }
+  .traco .valor small { display: block; font: 11px var(--mono); font-weight: 400; color: var(--apagado); margin-top: 2px; }
+  .traco.indefinido .valor { color: var(--apagado); font-style: italic; font-weight: 500; }
+  .cor-mini { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; border: 1px solid rgba(255,255,255,.3); }
+  .traco .certeza { font: 12px var(--mono); text-align: right; min-width: 64px; }
+  .traco .certeza .barra { margin-top: 4px; }
+  .traco.definido .certeza .barra i { background: var(--verde); }
+  .traco.indefinido .certeza .barra i { background: var(--ambar); }
+  .ficha-rodape { margin-top: 8px; font: 11px var(--mono); color: var(--apagado); }
+  .fichas-vazio { padding: 60px 0; text-align: center; color: var(--apagado); font: 14px var(--mono); }
+
+  /* ---------- Coluna da câmera ---------- */
+  .coluna-camera { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+  .area-camera { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .palco {
+    position: relative; flex: none; width: 640px; height: 360px;
+    background: #000; border: 1px solid var(--linha); border-radius: 10px; overflow: hidden;
+  }
+  .palco video, .palco img, .palco canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .espelhado { transform: scaleX(-1); }
+
+  .painel {
+    position: absolute; top: 10px; padding: 7px 10px; max-width: 55%;
+    background: var(--painel); border: 1px solid var(--linha); border-radius: 8px;
+    backdrop-filter: blur(4px); font: 11px/1.5 var(--mono); pointer-events: none;
+  }
+  .painel.esq { left: 10px; }
+  .painel.dir { right: 10px; font-weight: 600; letter-spacing: .08em; }
+  .painel h2 { margin: 0 0 3px; font: 600 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--apagado); }
+  .painel dl { margin: 0; display: grid; grid-template-columns: auto auto; gap: 0 10px; }
+  .painel dt { color: var(--apagado); }
+  .painel dd { margin: 0; }
+  .selo::before { content: "●"; margin-right: 6px; }
+  .selo.auto { color: var(--vermelho); }
+  .selo.humano { color: var(--verde); }
+
+  .aviso {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    padding: 24px; text-align: center; font: 14px var(--mono); background: rgba(0,0,0,.7);
+  }
+  .aviso.erro { color: #fca5a5; }
+  .aviso[hidden] { display: none; }
+
+  /* ---------- Veredito ---------- */
+  .veredito {
+    flex: none; display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-radius: 10px;
+    border: 1px solid var(--linha); background: var(--cartao); transition: border-color .2s;
+  }
+  .veredito-corpo { flex: 1; min-width: 0; }
+  .veredito-titulo { display: flex; align-items: center; gap: 10px; font: 700 18px var(--mono); letter-spacing: .05em; }
+  .veredito .ponto { width: 11px; height: 11px; border-radius: 50%; background: var(--apagado); flex: none; }
+  .veredito p { margin: 4px 0 0; color: var(--apagado); font-size: 13px; }
+  .veredito.identificado { border-color: var(--verde); }
+  .veredito.identificado .ponto { background: var(--verde); box-shadow: 0 0 10px var(--verde); }
+  .veredito.identificado .veredito-titulo { color: var(--verde); }
+  .veredito.analisando { border-color: var(--vermelho); }
+  .veredito.analisando .ponto { background: var(--vermelho); box-shadow: 0 0 10px var(--vermelho); }
+  .veredito.analisando .veredito-titulo { color: var(--vermelho); }
+  .veredito.pendente { border-color: var(--ambar); }
+  .veredito.pendente .ponto { background: var(--ambar); box-shadow: 0 0 10px var(--ambar); animation: pulsar 1s infinite; }
+  .veredito.pendente .veredito-titulo { color: var(--ambar); }
+  .veredito.rejeitado .veredito-titulo { color: var(--cinza); }
+  @keyframes pulsar { 50% { opacity: .35; } }
+
+  .acoes { display: flex; gap: 8px; flex: none; }
+  .acoes[hidden] { display: none; }
+  .acoes button {
+    font: 600 13px var(--mono); padding: 9px 14px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--linha); background: #16202b; color: var(--texto);
+  }
+  .acoes .aprovar { border-color: var(--verde); color: var(--verde); }
+  .acoes .rejeitar { border-color: var(--vermelho); color: var(--vermelho); }
+  .acoes button:hover { filter: brightness(1.3); }
+  kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid currentColor; border-radius: 3px; opacity: .7; }
+
+  /* ---------- Controles ---------- */
+  .controles {
+    flex: none; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+    font-size: 13px; color: var(--apagado);
+  }
+  .controles label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .controles output { font-family: var(--mono); color: var(--texto); min-width: 3ch; }
+  #toggles { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { padding: 3px 10px; border: 1px solid var(--linha); border-radius: 999px; background: var(--cartao); color: var(--texto); }
+  .modos { display: inline-flex; border: 1px solid var(--linha); border-radius: 8px; overflow: hidden; }
+  .modos button {
+    font: 600 12px var(--mono); padding: 5px 10px; border: 0; cursor: pointer;
+    background: var(--cartao); color: var(--apagado);
+  }
+  .modos button.ativo { background: #1b2a39; color: var(--texto); }
+
+  /* ---------- Barra lateral ---------- */
+  aside { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+  .cartao {
+    background: var(--cartao); border: 1px solid var(--linha); border-radius: 10px;
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .cartao h2 {
+    flex: none; margin: 0; padding: 8px 12px; border-bottom: 1px solid var(--linha);
+    font: 600 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--apagado);
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  }
+  .rolagem { overflow: auto; min-height: 0; flex: 1; }
+  #cartao-ident { flex: 1 1 30%; }
+  #cartao-pessoas { flex: 1 1 35%; }
+  #cartao-decisoes { flex: 1 1 35%; }
+
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 5px 10px; border-bottom: 1px solid #18222d; vertical-align: middle; }
+  .mini { width: 40px; height: 40px; border-radius: 6px; display: block; border: 2px solid var(--vermelho); background: #000; }
+  tr.ok .mini { border-color: var(--verde); }
+  tr.pendente .mini { border-color: var(--ambar); }
+  tr.rejeitado .mini { border-color: var(--cinza); }
+  .nome { font-weight: 600; font-size: 14px; }
+  .estado { font: 11px var(--mono); color: var(--vermelho); }
+  tr.ok .estado { color: var(--verde); }
+  tr.pendente .estado { color: var(--ambar); }
+  tr.rejeitado .estado { color: var(--cinza); }
+  .conf { width: 88px; text-align: right; font: 12px var(--mono); }
+  .barra { position: relative; height: 5px; margin-top: 4px; background: #1d2935; border-radius: 3px; }
+  .barra i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--vermelho); }
+  tr.ok .barra i { background: var(--verde); }
+  tr.pendente .barra i { background: var(--ambar); }
+  tr.rejeitado .barra i { background: var(--cinza); }
+  .barra b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--texto); opacity: .6; }
+  .vazio { padding: 12px; color: var(--apagado); font: 12px var(--mono); }
+  .vazio[hidden] { display: none; }
+
+  /* Pessoas memorizadas */
+  #galeria { list-style: none; margin: 0; padding: 0; }
+  #galeria li { display: flex; align-items: center; gap: 10px; padding: 5px 10px; border-bottom: 1px solid #18222d; }
+  #galeria img, #galeria .sem-foto {
+    width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex: none;
+    border: 2px solid var(--cinza); background: #000;
+  }
+  #galeria li.presente img, #galeria li.presente .sem-foto { border-color: var(--verde); box-shadow: 0 0 8px rgba(34,197,94,.5); }
+  #galeria .estado { color: var(--apagado); }
+  #galeria li.presente .estado { color: var(--verde); }
+  #galeria li.nova { animation: chegar 1.2s ease-out; }
+  @keyframes chegar { from { background: rgba(56,189,248,.25); } to { background: transparent; } }
+  .botao-pequeno {
+    font: 600 10px var(--mono); letter-spacing: .06em; text-transform: uppercase; cursor: pointer;
+    padding: 3px 8px; border-radius: 6px; border: 1px solid var(--linha); background: #16202b; color: var(--apagado);
+  }
+  .botao-pequeno:hover { color: var(--vermelho); border-color: var(--vermelho); }
+  .nota { flex: none; padding: 6px 12px; border-top: 1px solid var(--linha); font: 10px var(--mono); color: var(--apagado); }
+
+  /* Quem decidiu? */
+  .placar { flex: none; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1px; background: var(--linha); border-bottom: 1px solid var(--linha); }
+  .placar div { background: var(--cartao); padding: 6px 8px; }
+  .placar span { display: block; font: 9px var(--mono); color: var(--apagado); text-transform: uppercase; letter-spacing: .06em; }
+  .placar strong { font: 700 15px var(--mono); }
+  .placar .ia strong { color: var(--vermelho); }
+  .placar .hu strong { color: var(--verde); }
+  #registro { list-style: none; margin: 0; padding: 0; }
+  #registro li { padding: 5px 12px; border-bottom: 1px solid #18222d; font-size: 12px; line-height: 1.4; }
+  #registro time { font: 11px var(--mono); color: var(--apagado); margin-right: 6px; }
+  #registro li::before { content: "●"; margin-right: 6px; }
+  #registro .ia::before { color: var(--vermelho); }
+  #registro .sugestao::before { color: var(--ambar); }
+  #registro .aprovou::before { color: var(--verde); }
+  #registro .rejeitou::before, #registro .expirou::before { color: var(--cinza); }
+  #registro .nova::before, #registro .voltou::before, #registro .ficha::before { color: var(--azul); }
+
+  @media (max-width: 900px) {
+    body { height: auto; overflow: auto; }
+    main { grid-template-columns: 1fr; }
+    .area-camera { flex: none; height: 56vw; }
+    #cartao-ident, #cartao-pessoas, #cartao-decisoes { max-height: 50vh; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Visão IA · Protótipo</h1>
+  <div class="abas" role="tablist">
+    <button id="aba-camera" class="ativo">Câmera</button>
+    <button id="aba-fichas">Fichas · <span id="contagem-fichas">0</span></button>
+  </div>
+  <span class="sub">prova de conceito · quem decide?</span>
+</header>
+
+<div class="conteudo">
+<main>
+  <section class="coluna-camera">
+    <div class="area-camera" id="area-camera">
+      <div class="palco" id="palco">
+        <video id="video" muted playsinline></video>
+        <img id="img" alt="" hidden>
+        <canvas id="tela"></canvas>
+
+        <div class="painel esq">
+          <h2>Sistema</h2>
+          <dl id="lista-sistema"></dl>
+        </div>
+        <div class="painel dir"><span class="selo auto" id="selo-modo">MODO AUTOMÁTICO</span></div>
+
+        <div class="aviso" id="aviso">Iniciando…</div>
+      </div>
+    </div>
+
+    <div class="veredito" id="veredito">
+      <div class="veredito-corpo">
+        <div class="veredito-titulo"><span class="ponto"></span><span id="veredito-texto">AGUARDANDO</span></div>
+        <p id="veredito-motivo">A câmera e os modelos ainda estão carregando.</p>
+      </div>
+      <div class="acoes" id="acoes" hidden>
+        <button class="aprovar" id="btn-aprovar">Aprovar <kbd>A</kbd></button>
+        <button class="rejeitar" id="btn-rejeitar">Rejeitar <kbd>R</kbd></button>
+      </div>
+    </div>
+
+    <div class="controles">
+      <div class="modos" role="group" aria-label="Modo de decisão">
+        <button id="modo-auto" class="ativo">Automático</button>
+        <button id="modo-humano">Humano decide</button>
+      </div>
+      <label title="Quanta certeza a IA precisa ter. Para pessoas: quão parecido um rosto precisa ser para a IA dizer que é a mesma pessoa.">Limite de certeza
+        <input type="range" id="limite" min="30" max="95" step="5">
+        <output id="limite-valor"></output>
+      </label>
+      <div id="toggles"></div>
+      <label title="Qual câmera usar (a do Chromebook ou a webcam USB do drone)">Câmera
+        <select id="camera"><option>carregando…</option></select>
+      </label>
+      <button type="button" class="botao-pequeno" id="procurar-cameras" title="Procurar câmeras de novo (use depois de plugar a webcam)">↻ procurar</button>
+      <span id="info-cameras" class="sub"></span>
+      <label><input type="checkbox" id="espelhar"> Espelhar</label>
+      <label title="Mostra os pedaços da imagem que a IA usa pra descrever cabelo, pele, luz e roupa"><input type="checkbox" id="regioes"> Onde a IA olha</label>
+      <label title="Identifica o tipo de roupa com o modelo CLIP (pesado: baixa bastante coisa na primeira vez)"><input type="checkbox" id="roupas"> Roupas</label>
+    </div>
+  </section>
+
+  <aside>
+    <div class="cartao" id="cartao-ident">
+      <h2><span>Na câmera agora</span><span id="contagem">0</span></h2>
+      <div class="rolagem">
+        <table><tbody id="tabela"></tbody></table>
+        <div class="vazio" id="tabela-vazia">Nada à vista.</div>
+      </div>
+    </div>
+
+    <div class="cartao" id="cartao-pessoas">
+      <h2>
+        <span>Pessoas memorizadas · <span id="contagem-pessoas">0</span></span>
+        <button class="botao-pequeno" id="btn-esquecer">Esquecer todos</button>
+      </h2>
+      <div class="rolagem">
+        <ul id="galeria"></ul>
+        <div class="vazio" id="galeria-vazia">Ninguém memorizado ainda. Apareça na câmera.</div>
+      </div>
+      <div class="nota">Fica só na memória desta aba. Recarregar a página apaga tudo.</div>
+    </div>
+
+    <div class="cartao" id="cartao-decisoes">
+      <h2><span>Quem decidiu?</span><span id="contagem-decisoes">0</span></h2>
+      <div class="placar">
+        <div class="ia"><span>Decisões IA</span><strong id="p-ia">0</strong></div>
+        <div class="ia"><span>Tempo IA</span><strong id="p-tia">—</strong></div>
+        <div class="hu"><span>Decisões humanas</span><strong id="p-hu">0</strong></div>
+        <div class="hu"><span>Tempo humano</span><strong id="p-thu">—</strong></div>
+      </div>
+      <div class="rolagem"><ul id="registro"></ul></div>
+    </div>
+  </aside>
+</main>
+
+<section id="fichas">
+  <div class="fichas-topo">
+    <div>
+      <h2>FICHAS DAS PESSOAS</h2>
+      <p>Descrição feita pela IA a partir da câmera. Ela observa várias vezes e só decide quando as observações concordam;
+        até lá, fica indefinido. Luz, distância e qualidade da câmera mudam o resultado.</p>
+    </div>
+    <div class="ajuste-luz">
+      <label>Compensação de luz (pele e cabelo)
+        <input type="range" id="compensacao" min="0" max="100" step="5">
+        <output id="compensacao-valor"></output>
+      </label>
+      <small id="compensacao-info">0% = cor crua da câmera · 100% = correção total</small>
+    </div>
+  </div>
+  <div class="fichas-grade" id="fichas-grade"></div>
+  <div class="fichas-vazio" id="fichas-vazio">Ninguém memorizado ainda. Volte para a aba Câmera e apareça na frente dela.</div>
+</section>
+</div>
+
+<script type="module">
+import { FilesetResolver, FaceDetector, HandLandmarker, ObjectDetector }
+  from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+/* =====================================================================
+   CONFIGURAÇÃO — o que você mais vai mexer fica aqui
+   ===================================================================== */
+const CONFIG = {
+  // "webcam" usa a câmera do computador.
+  // Quando a ESP32-CAM chegar, troque por algo como: "http://192.168.4.1:81/stream"
+  fonte: "webcam",
+
+  modo: "auto",              // "auto" = a IA decide sozinha | "humano" = a IA sugere e uma pessoa aprova
+  espelhar: true,            // espelha só a exibição (bom pra webcam; desligue pra ESP32-CAM)
+  mostrarRegioes: false,     // desenha os pedaços da imagem que a IA usa pra cabelo, pele e luz
+  limiteConfianca: 0.70,     // a partir de quanto a IA "tem certeza" (0 a 1)
+  quadrosParaConfirmar: 6,   // quadros seguidos acima do limite pra virar "identificado"
+  confiancaMinima: 0.30,     // abaixo disso a detecção nem aparece na tela
+  maxMaos: 4,                // quantas mãos ao mesmo tempo
+  tempoParaSair: 1000,       // ms sem ver um item até considerar que ele saiu de cena
+
+  // --- Reconhecimento de pessoas ---
+  detectorRosto: "tiny",     // "tiny" = mais rápido (bom pra Chromebook) | "ssd" = mais preciso, pega rostos menores
+  quadrosParaMemorizar: 6,   // quadros bons seguidos pra memorizar um rosto novo
+  tamanhoMinimoRosto: 0.06,  // rosto menor que isso (fração da largura da imagem) não é memorizado
+  folgaRastreio: 0.08,       // se o rosto está no mesmo lugar do quadro anterior, aceita um pouco menos de semelhança
+  ausenciaParaVoltar: 3000,  // ms fora da câmera pra contar como "voltou"
+  maxAmostras: 12,           // quantas "fotos" (assinaturas) a IA guarda de cada pessoa
+  intervaloAmostra: 800,     // ms entre novas amostras da mesma pessoa
+
+  // --- Fichas (descrição das pessoas) ---
+  observacoesParaDecidir: 8, // quantas observações antes de decidir cabelo/olhos/pele
+  concordanciaMinima: 0.6,   // fração das observações que precisa concordar pra decidir
+  intervaloTraco: 400,       // ms entre observações da mesma pessoa
+  memoriaLuzCena: 6000,      // ms: a luz do ambiente muda devagar (média dos últimos segundos)
+  forcaOlhos: 0.2,           // ajuste por pessoa: 0 = desliga · 1 = confia totalmente no olho dela (exagera)
+  compensacaoPele: 0.4,      // quanto da correção de luz vai pra pele e cabelo: 0 = cor crua · 1 = correção total
+  limiteClaro: 200,          // pixels mais claros que isso (e sem cor) são parede/janela/luz, nunca cabelo
+  estimarIdade: true,        // estima a idade de cada pessoa (um pouco mais lento)
+  margemIdade: 3,            // a faixa mostrada tem pelo menos isso de anos pra cada lado
+  estimarGenero: true,       // palpite de gênero pela aparência do rosto (o modelo só conhece masculino/feminino)
+  confiancaGenero: 0.6,      // leituras com menos certeza que isso são ignoradas
+
+  // --- Roupa (modelo CLIP: compara o recorte do tronco com estas frases) ---
+  // As frases ficam em INGLÊS porque o CLIP entende muito melhor. Dá pra descrever o
+  // uniforme da sua escola, ex.: "a student wearing a navy blue polo shirt with a school logo".
+  detectarRoupa: true,
+  // Cada categoria pode ter várias "variantes" (peças). A certeza das variantes é SOMADA na categoria.
+  roupas: [
+    { nome: "uniforme escolar", variantes: [
+      { nome: "camisa branca",           descricao: "a student wearing a white t-shirt with orange lettering on the chest and orange stripes", cor: "branco" },
+      { nome: "camisa cinza-escura",     descricao: "a student wearing a dark gray t-shirt with orange lettering on the chest and orange stripes", cor: "cinza-escuro" },
+      { nome: "camisa laranja",          descricao: "a student wearing an orange t-shirt with dark gray lettering on the chest and white stripes", cor: "laranja" },
+      { nome: "casaco cinza-claro",      descricao: "a student wearing a light gray hooded jacket with an orange logo and orange stripes", cor: "cinza-claro" },
+      { nome: "casaco cinza-escuro",     descricao: "a student wearing a dark gray jacket without a hood, with an orange logo and orange stripes", cor: "cinza-escuro" },
+      { nome: "jaqueta acolchoada",      descricao: "a student wearing a medium gray quilted puffer jacket with an orange logo", cor: "cinza-médio" },
+      { nome: "moletom branco",          descricao: "a student wearing a white sweatshirt with an orange logo and orange stripes", cor: "branco" },
+    ] },
+    { nome: "jaleco", variantes: [
+      { nome: "jaleco",                  descricao: "a person wearing a long white lab coat with buttons" },
+    ] },
+    { nome: "roupa militar", variantes: [
+      { nome: "farda camuflada",         descricao: "a person wearing a camouflage military uniform" },
+    ] },
+    { nome: "roupa formal", variantes: [
+      { nome: "terno",                   descricao: "a person wearing a formal suit and tie" },
+      { nome: "camisa social",           descricao: "a person wearing a formal button-up dress shirt" },
+    ] },
+    { nome: "roupa casual", variantes: [
+      { nome: "camiseta",                descricao: "a person wearing a plain casual t-shirt with no logo" },
+      { nome: "moletom ou casaco comum", descricao: "a person wearing a plain hoodie or jacket with no logo" },
+      { nome: "camiseta estampada",      descricao: "a person wearing a casual t-shirt with a big colorful print" },
+    ] },
+  ],
+  // Cores medidas na imagem (depois da compensação de luz). O CLIP decide SE é uniforme e o tipo
+  // da peça; a cor medida ajuda a escolher entre peças parecidas (ex.: casaco cinza-claro x moletom branco).
+  coresRoupa: {
+    "branco":       [235, 235, 232],
+    "cinza-claro":  [185, 185, 185],
+    "cinza-médio":  [130, 130, 132],
+    "cinza-escuro": [65, 65, 70],
+    "laranja":      [230, 120, 40],
+  },
+  toleranciaCorRoupa: 12,    // menor = a cor pesa mais na escolha da peça
+  confiancaRoupa: 0.4,       // leitura com menos que isso na melhor opção conta como "incerta"
+  observacoesRoupa: 4,       // leituras antes de decidir a roupa (cada uma demora ~1 s)
+  intervaloRoupa: 1500,      // ms entre leituras da mesma pessoa
+
+  wasm: "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm",
+};
+
+const MODELOS = {
+  rosto:   "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+  mao:     "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+  objetos: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
+  faceApiJs: "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.esm.js",
+  faceApiModelos: "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/",
+  transformersJs: "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1",
+  clip: "Xenova/clip-vit-base-patch32",
+};
+
+let faceapi = null; // biblioteca de reconhecimento facial, carregada só quando precisa
+
+/* =====================================================================
+   DETECTORES
+   ---------------------------------------------------------------------
+   Cada detector é um objeto nesta lista. Pra adicionar uma coisa nova
+   pra IA identificar, copie um bloco e mude:
+     - id, nome, ativo
+     - carregar(vision): cria o modelo e guarda em this.modelo
+     - detectar(fonte, tempo, W, H): devolve (ou promete) uma lista de
+         { rotulo, confianca (0 a 1), caixa: {x, y, w, h} em pixels,
+           pontos (opcional), conexoes (opcional),
+           naoConfirmavel / detalhe / etiqueta (opcional, pra itens "em análise") }
+   O resto (caixas, cores, tabela, veredito, registro) funciona sozinho.
+   ===================================================================== */
+const DETECTORES = [
+  {
+    id: "pessoas",
+    nome: "Pessoas",
+    ativo: true,
+    async carregar() {
+      faceapi = await import(MODELOS.faceApiJs);
+      try { await faceapi.tf?.setBackend("webgl"); } catch (e) { console.warn("WebGL indisponível pro face-api", e); }
+      await faceapi.tf?.ready();
+      const nets = faceapi.nets;
+      const usarSsd = CONFIG.detectorRosto === "ssd";
+      await Promise.all([
+        (usarSsd ? nets.ssdMobilenetv1 : nets.tinyFaceDetector).loadFromUri(MODELOS.faceApiModelos),
+        nets.faceLandmark68Net.loadFromUri(MODELOS.faceApiModelos),
+        nets.faceRecognitionNet.loadFromUri(MODELOS.faceApiModelos),
+      ]);
+      try {
+        await nets.ageGenderNet.loadFromUri(MODELOS.faceApiModelos); // usamos só a idade
+        this.temIdade = true;
+      } catch (e) { console.warn("Modelo de idade não carregou; seguindo sem idade.", e); }
+      this.opcoes = usarSsd
+        ? new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
+        : new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 });
+      this.modelo = true;
+    },
+    async detectar(fonte, tempo, W) {
+      let tarefa = faceapi.detectAllFaces(fonte, this.opcoes).withFaceLandmarks();
+      if (this.temIdade && (CONFIG.estimarIdade || CONFIG.estimarGenero)) tarefa = tarefa.withAgeAndGender();
+      const rostos = await tarefa.withFaceDescriptors();
+      return reconhecer(rostos, tempo, W);
+    },
+  },
+
+  {
+    id: "rosto",
+    nome: "Rostos (só detecção)",
+    ativo: false,
+    async carregar(vision) {
+      this.modelo = await criarComFallback(o => FaceDetector.createFromOptions(vision, o), {
+        baseOptions: { modelAssetPath: MODELOS.rosto },
+        runningMode: "VIDEO",
+        minDetectionConfidence: CONFIG.confiancaMinima,
+      });
+    },
+    detectar(fonte, tempo) {
+      const r = this.modelo.detectForVideo(fonte, tempo);
+      return (r.detections ?? []).map(d => ({
+        rotulo: "Rosto",
+        confianca: d.categories?.[0]?.score ?? 0,
+        caixa: caixaDe(d.boundingBox),
+      }));
+    },
+  },
+
+  {
+    id: "mao",
+    nome: "Mãos",
+    ativo: false,
+    async carregar(vision) {
+      this.modelo = await criarComFallback(o => HandLandmarker.createFromOptions(vision, o), {
+        baseOptions: { modelAssetPath: MODELOS.mao },
+        runningMode: "VIDEO",
+        numHands: CONFIG.maxMaos,
+        minHandDetectionConfidence: CONFIG.confiancaMinima,
+        minHandPresenceConfidence: CONFIG.confiancaMinima,
+        minTrackingConfidence: CONFIG.confiancaMinima,
+      });
+    },
+    detectar(fonte, tempo, W, H) {
+      const r = this.modelo.detectForVideo(fonte, tempo);
+      const lados = r.handedness ?? r.handednesses ?? [];
+      return (r.landmarks ?? []).map((pts, i) => {
+        const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+        const folga = 0.03;
+        const x0 = Math.max(0, Math.min(...xs) - folga), y0 = Math.max(0, Math.min(...ys) - folga);
+        const x1 = Math.min(1, Math.max(...xs) + folga), y1 = Math.min(1, Math.max(...ys) + folga);
+        // O modelo supõe imagem espelhada (selfie). Como passamos a imagem original, invertemos o lado.
+        const lado = lados[i]?.[0];
+        const nomeLado = lado ? (lado.categoryName === "Left" ? " direita" : " esquerda") : "";
+        return {
+          rotulo: "Mão" + nomeLado,
+          confianca: lado?.score ?? 0,
+          caixa: { x: x0 * W, y: y0 * H, w: (x1 - x0) * W, h: (y1 - y0) * H },
+          pontos: pts.map(p => ({ x: p.x * W, y: p.y * H })),
+          conexoes: HandLandmarker.HAND_CONNECTIONS,
+        };
+      });
+    },
+  },
+
+  {
+    id: "objetos",
+    nome: "Objetos",
+    ativo: false,
+    async carregar(vision) {
+      this.modelo = await criarComFallback(o => ObjectDetector.createFromOptions(vision, o), {
+        baseOptions: { modelAssetPath: MODELOS.objetos },
+        runningMode: "VIDEO",
+        scoreThreshold: CONFIG.confiancaMinima,
+        maxResults: 5,
+      });
+    },
+    detectar(fonte, tempo) {
+      const r = this.modelo.detectForVideo(fonte, tempo);
+      return (r.detections ?? []).map(d => {
+        const c = d.categories?.[0];
+        return { rotulo: traduzir(c?.categoryName), confianca: c?.score ?? 0, caixa: caixaDe(d.boundingBox) };
+      });
+    },
+  },
+];
+
+// Nomes em português pros objetos mais comuns (o modelo responde em inglês).
+const TRADUCOES = {
+  "person": "Pessoa", "cell phone": "Celular", "bottle": "Garrafa", "cup": "Copo", "chair": "Cadeira",
+  "laptop": "Notebook", "book": "Livro", "backpack": "Mochila", "keyboard": "Teclado", "mouse": "Mouse",
+  "tv": "TV", "scissors": "Tesoura", "umbrella": "Guarda-chuva", "handbag": "Bolsa", "remote": "Controle",
+  "clock": "Relógio", "dining table": "Mesa", "potted plant": "Planta", "car": "Carro", "dog": "Cachorro",
+  "cat": "Gato", "tie": "Gravata", "banana": "Banana", "apple": "Maçã", "teddy bear": "Ursinho",
+};
+const traduzir = nome => TRADUCOES[nome] ?? (nome ? nome[0].toUpperCase() + nome.slice(1) : "Objeto");
+const caixaDe = b => ({ x: b.originX, y: b.originY, w: b.width, h: b.height });
+
+/* =====================================================================
+   MEMÓRIA DE PESSOAS
+   ---------------------------------------------------------------------
+   Cada rosto vira uma "assinatura": 128 números que descrevem o rosto.
+   Rostos da mesma pessoa têm assinaturas parecidas (distância pequena);
+   de pessoas diferentes, assinaturas distantes.
+   A semelhança mostrada na tela vem dessa distância.
+   ===================================================================== */
+const memoria = {
+  pessoas: [],      // { id, nome, amostras: [assinaturas], foto, ultima, ultimaAmostra, vezes }
+  proximoId: 1,
+  candidatos: [],   // rostos novos sendo observados antes de virar "Pessoa N"
+  anteriores: [],   // onde cada pessoa estava no quadro anterior (ajuda a não trocar de nome)
+};
+
+// distância 0 = idêntico (100%) · 0,5 = 70% · 1,0 = 40%
+const semelhanca = d => Math.max(0, Math.min(1, 1 - d * 0.6));
+
+function distanciaMin(pessoa, desc) {
+  let min = Infinity;
+  for (const a of pessoa.amostras) min = Math.min(min, faceapi.euclideanDistance(a, desc));
+  return min;
+}
+
+function iou(a, b) {
+  const x0 = Math.max(a.x, b.x), y0 = Math.max(a.y, b.y);
+  const x1 = Math.min(a.x + a.w, b.x + b.w), y1 = Math.min(a.y + a.h, b.y + b.h);
+  const inter = Math.max(0, x1 - x0) * Math.max(0, y1 - y0);
+  return inter / (a.w * a.h + b.w * b.h - inter || 1);
+}
+
+function reconhecer(rostos, agora, W) {
+  const limite = CONFIG.limiteConfianca;
+  memoria.candidatos.forEach(c => (c.usado = false));
+
+  const itens = rostos.map(f => {
+    const b = f.detection.box;
+    return {
+      caixa: { x: b.x, y: b.y, w: b.width, h: b.height },
+      desc: f.descriptor,
+      pontos: f.landmarks?.positions,
+      idade: Number.isFinite(f.age) ? f.age : null,
+      genero: f.gender ? { classe: f.gender === "male" ? "masculino" : "feminino", prob: f.genderProbability } : null,
+      bom: Math.min(b.width, b.height) >= W * CONFIG.tamanhoMinimoRosto,
+    };
+  });
+
+  // 1) Compara cada rosto com cada pessoa memorizada
+  const pares = [];
+  itens.forEach((it, i) => {
+    for (const p of memoria.pessoas) {
+      const sim = semelhanca(distanciaMin(p, it.desc));
+      if (!it.melhor || sim > it.melhor.sim) it.melhor = { p, sim };
+      const seguindo = memoria.anteriores.some(a => a.pessoaId === p.id && iou(a.caixa, it.caixa) > 0.3);
+      if (sim >= (seguindo ? limite - CONFIG.folgaRastreio : limite)) pares.push({ i, p, sim });
+    }
+  });
+
+  // 2) Cada rosto vira no máximo uma pessoa, e cada pessoa aparece no máximo uma vez
+  pares.sort((a, b) => b.sim - a.sim);
+  const rostoUsado = new Set(), pessoaUsada = new Set();
+  for (const par of pares) {
+    if (rostoUsado.has(par.i) || pessoaUsada.has(par.p.id)) continue;
+    rostoUsado.add(par.i); pessoaUsada.add(par.p.id);
+    itens[par.i].pessoa = par.p; itens[par.i].sim = par.sim;
+  }
+
+  // 3) Monta o resultado de cada rosto
+  const resultados = [], atribuicoes = [];
+  for (const it of itens) {
+    const r = it.pessoa ? reconhecido(it, agora) : memorizando(it, agora, pessoaUsada);
+    if (r.pessoaId) {
+      atribuicoes.push({ pessoaId: r.pessoaId, caixa: it.caixa });
+      const p = memoria.pessoas.find(p => p.id === r.pessoaId);
+      if (p && it.bom && it.pontos) observarTracos(p, it.pontos, agora, it.idade, it.genero);
+      if (p?.regioes && agora - p.regioesEm < 1000) r.regioes = p.regioes;
+      if (p?.regiaoRoupa && agora - p.regiaoRoupa.em < 2500) r.regioes = [...(r.regioes ?? []), p.regiaoRoupa];
+    }
+    resultados.push(r);
+  }
+
+  memoria.candidatos = memoria.candidatos.filter(c => agora - c.ultimo < 1000);
+  memoria.anteriores = atribuicoes;
+
+  // Roupa: uma pessoa por vez (a que está há mais tempo sem leitura), porque o modelo é pesado
+  const naTela = atribuicoes
+    .map(a => ({ p: memoria.pessoas.find(x => x.id === a.pessoaId), caixa: a.caixa }))
+    .filter(x => x.p);
+  if (naTela.length) {
+    const vez = naTela.reduce((a, b) => ((a.p.ultimaRoupa ?? -1e9) <= (b.p.ultimaRoupa ?? -1e9) ? a : b));
+    observarRoupa(vez.p, vez.caixa, agora);
+  }
+  return resultados;
+}
+
+function reconhecido(it, agora) {
+  const p = it.pessoa;
+  const ausente = agora - p.ultima;
+  if (ausente > CONFIG.ausenciaParaVoltar) {
+    p.vezes++;
+    registrar("voltou",
+      `<b>${esc(p.nome)}</b> voltou e foi reconhecida (${pct(it.sim)}). ` +
+      `Estava fora havia ${tempoRelativo(ausente)}; ${p.vezes}ª aparição.`);
+  }
+  p.ultima = agora;
+
+  // Vai aprendendo outros ângulos da mesma pessoa
+  if (it.bom && it.sim >= CONFIG.limiteConfianca + 0.05 && agora - p.ultimaAmostra > CONFIG.intervaloAmostra) {
+    if (p.amostras.length < CONFIG.maxAmostras) p.amostras.push(it.desc);
+    else p.amostras[1 + Math.floor(Math.random() * (p.amostras.length - 1))] = it.desc;
+    p.ultimaAmostra = agora;
+  }
+  return { rotulo: p.nome, confianca: it.sim, caixa: it.caixa, pessoaId: p.id };
+}
+
+function memorizando(it, agora, pessoaUsada) {
+  let c = memoria.candidatos.find(c => !c.usado && iou(c.caixa, it.caixa) > 0.3);
+  if (!c) { c = { amostras: [], quadros: 0 }; memoria.candidatos.push(c); }
+  c.usado = true; c.caixa = it.caixa; c.ultimo = agora;
+  if (it.bom) { c.quadros++; c.amostras.push(it.desc); }
+
+  const N = CONFIG.quadrosParaMemorizar;
+  if (c.quadros >= N) {
+    memoria.candidatos = memoria.candidatos.filter(x => x !== c);
+
+    // Antes de criar alguém novo: talvez seja uma pessoa conhecida num ângulo ruim.
+    const media = mediaDe(c.amostras);
+    let melhor = null;
+    for (const p of memoria.pessoas) {
+      if (pessoaUsada.has(p.id)) continue;
+      const sim = semelhanca(distanciaMin(p, media));
+      if (!melhor || sim > melhor.sim) melhor = { p, sim };
+    }
+    if (melhor && melhor.sim >= CONFIG.limiteConfianca - CONFIG.folgaRastreio) {
+      melhor.p.amostras.length < CONFIG.maxAmostras && melhor.p.amostras.push(media);
+      pessoaUsada.add(melhor.p.id);
+      return reconhecido({ ...it, pessoa: melhor.p, sim: melhor.sim }, agora);
+    }
+
+    const p = novaPessoa(c, it.caixa, agora);
+    pessoaUsada.add(p.id);
+    return { rotulo: p.nome, confianca: semelhanca(distanciaMin(p, it.desc)), caixa: it.caixa, pessoaId: p.id };
+  }
+
+  const parecido = it.melhor ? ` · parece ${pct(it.melhor.sim)} com ${it.melhor.p.nome}` : "";
+  return {
+    rotulo: "Desconhecido",
+    confianca: it.melhor?.sim ?? 0,
+    caixa: it.caixa,
+    naoConfirmavel: true,
+    detalhe: it.bom ? `rosto novo · memorizando ${c.quadros}/${N}${parecido}` : "rosto pequeno demais · chegue mais perto",
+    etiqueta: it.bom ? `MEMORIZANDO ${c.quadros}/${N}` : "CHEGUE MAIS PERTO",
+  };
+}
+
+function novaPessoa(candidato, caixa, agora) {
+  // Guarda até 5 amostras espalhadas ao longo da observação
+  const a = candidato.amostras;
+  const passo = Math.max(1, Math.floor(a.length / 5));
+  const amostras = a.filter((_, i) => i % passo === 0).slice(0, 5);
+
+  const p = {
+    id: memoria.proximoId,
+    nome: `Pessoa ${memoria.proximoId}`,
+    amostras,
+    foto: fotoDe(caixa),
+    ultima: agora,
+    ultimaAmostra: agora,
+    vezes: 1,
+    nova: true,
+    memorizadaEm: new Date(),
+    tracos: { idade: [], genero: [], roupa: [], cabelo: [], olhos: [], pele: [] },
+    decididos: {},
+    ultimoTraco: 0,
+  };
+  memoria.proximoId++;
+  memoria.pessoas.push(p);
+  registrar("nova", `Rosto novo memorizado como <b>${esc(p.nome)}</b>.`);
+  return p;
+}
+
+function mediaDe(descs) {
+  const m = new Float32Array(descs[0].length);
+  for (const d of descs) for (let i = 0; i < m.length; i++) m[i] += d[i] / descs.length;
+  return m;
+}
+
+/* =====================================================================
+   FICHAS — cor do cabelo, dos olhos e da pele
+   ---------------------------------------------------------------------
+   Os 68 pontos do rosto dizem onde ficam as bochechas, os olhos e a
+   testa. A IA lê a cor desses pedaços da imagem, classifica cada
+   observação e só "decide" quando várias observações concordam.
+   ===================================================================== */
+const NOMES_TRACOS = { idade: "Idade", genero: "Gênero", roupa: "Roupa", cabelo: "Cabelo", olhos: "Olhos", pele: "Pele" };
+const FINAL_TRACO = { idade: "a", genero: "o", roupa: "a", cabelo: "o", olhos: "os", pele: "a" }; // "roupa definida", "olhos definidos"
+const kDe = tipo => (tipo === "roupa" ? CONFIG.observacoesRoupa : CONFIG.observacoesParaDecidir);
+
+// Escala Monk de tons de pele (Google), do 1 (mais claro) ao 10 (mais escuro)
+const ESCALA_MONK = ["#f6ede4", "#f3e7db", "#f7ead0", "#eadaba", "#d7bd96",
+                     "#a07e56", "#825c43", "#604134", "#3a312a", "#292420"].map(hexParaRgb);
+
+const quadro = { canvas: document.createElement("canvas"), ctx: null, tempo: -1 };
+
+function pixelsDoQuadro(agora) {
+  if (quadro.tempo === agora && quadro.ctx) return quadro.ctx;
+  const { W, H } = tamanhoFonte();
+  if (quadro.canvas.width !== W || quadro.canvas.height !== H) {
+    quadro.canvas.width = W; quadro.canvas.height = H;
+    quadro.ctx = null;
+  }
+  quadro.ctx ??= quadro.canvas.getContext("2d", { willReadFrequently: true });
+  quadro.ctx.drawImage(estado.fonte, 0, 0, W, H);
+  quadro.tempo = agora;
+  return quadro.ctx;
+}
+
+function lerPixels(c, x, y, w, h, filtro) {
+  const W = c.canvas.width, H = c.canvas.height;
+  const x0 = Math.max(0, Math.round(x)), y0 = Math.max(0, Math.round(y));
+  const x1 = Math.min(W, Math.round(x + w)), y1 = Math.min(H, Math.round(y + h));
+  if (x1 - x0 < 2 || y1 - y0 < 2) return [];
+  const d = c.getImageData(x0, y0, x1 - x0, y1 - y0).data;
+  const px = [];
+  for (let j = 0; j < y1 - y0; j++) {
+    for (let i = 0; i < x1 - x0; i++) {
+      if (filtro && !filtro(x0 + i, y0 + j)) continue;
+      const k = (j * (x1 - x0) + i) * 4;
+      px.push([d[k], d[k + 1], d[k + 2]]);
+    }
+  }
+  return px;
+}
+
+function medianaRGB(px) {
+  if (!px.length) return null;
+  return [0, 1, 2].map(c => {
+    const v = px.map(p => p[c]).sort((a, b) => a - b);
+    return v[v.length >> 1];
+  });
+}
+
+function observarTracos(p, pts, agora, idade = null, genero = null) {
+  if (agora - p.ultimoTraco < CONFIG.intervaloTraco) return;
+  p.ultimoTraco = agora;
+
+  // Idade: vem direto do modelo de rosto, não precisa ler pixels
+  const novas = {
+    idade: CONFIG.estimarIdade && idade != null ? { classe: "idade", anos: idade } : null,
+    genero: CONFIG.estimarGenero && genero && genero.prob >= CONFIG.confiancaGenero
+      ? { classe: genero.classe, score: genero.prob } : null,
+  };
+
+  let c = null;
+  try {
+    c = pixelsDoQuadro(agora);
+    c.getImageData(0, 0, 1, 1); // falha se a câmera for de outro site sem permissão
+  } catch (e) { p.semPixels = true; c = null; }
+
+  if (c) {
+    const regioes = [];
+    const bochechas = lerBochechas(c, pts, regioes);
+    const luzRef = referenciaDeLuz(c, pts, bochechas, agora, regioes, p);
+    novas.pele = observarPele(luzRef);
+    novas.olhos = observarOlhos(c, pts);
+    novas.cabelo = observarCabelo(c, pts, luzRef, regioes);
+    p.regioes = regioes;
+    p.regioesEm = agora;
+  }
+
+  for (const [tipo, obs] of Object.entries(novas)) adicionarObservacao(p, tipo, obs);
+}
+
+// Guarda uma observação, decide de novo e anota no registro quando a decisão muda
+function adicionarObservacao(p, tipo, obs) {
+  {
+    const lista = (p.tracos[tipo] ??= []);
+    lista.push(obs ?? { classe: null });
+    if (lista.length > 30) lista.shift();
+
+    const d = decidirTraco(lista, tipo);
+    const anterior = p.decididos[tipo];
+    // Idade varia um pouquinho a cada leitura: só avisa no registro se mudar bastante
+    const mudouPouco = tipo === "idade" && anterior && Math.abs(d.anos - p.decididos.idadeAnos) < 5;
+    if (d.estado === "definido" && d.texto !== anterior && !mudouPouco) {
+      if (tipo === "idade") p.decididos.idadeAnos = d.anos;
+      p.decididos[tipo] = d.texto;
+      registrar("ficha", anterior
+        ? `${esc(p.nome)}: a IA mudou de ideia sobre ${NOMES_TRACOS[tipo].toLowerCase()}: ${esc(anterior)} → <b>${esc(d.texto)}</b> (${pct(d.conf)})`
+        : `${esc(p.nome)}: ${NOMES_TRACOS[tipo].toLowerCase()} definid${FINAL_TRACO[tipo]} como <b>${esc(d.texto)}</b> (${pct(d.conf)})`);
+    }
+  }
+}
+
+// Bochechas: um pedaço de cada lado do rosto (cor "crua", como a câmera vê)
+function lerBochechas(c, pts, regioes) {
+  const lado = (pts[16].x - pts[0].x) * 0.12;
+  return [[2, 29], [14, 29]].map(([a, b]) => {
+    const x = (pts[a].x + pts[b].x) / 2 - lado / 2, y = (pts[a].y + pts[b].y) / 2 - lado / 2;
+    regioes.push({ x, y, w: lado, h: lado, tipo: "pele" });
+    return medianaRGB(lerPixels(c, x, y, lado, lado));
+  });
+}
+
+// Branco do olho: os pixels mais claros dentro do contorno do olho
+function escleraDe(c, pts, i0, regioes) {
+  const poli = pts.slice(i0, i0 + 6);
+  const xs = poli.map(p => p.x), ys = poli.map(p => p.y);
+  const x = Math.min(...xs), y = Math.min(...ys), w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+  if (w < 14) return null;
+  const px = lerPixels(c, x, y, w, h, (qx, qy) => dentroDoPoligono(qx, qy, poli));
+  if (px.length < 12) return null;
+  px.sort((a, b) => luz(a) - luz(b));
+  const escuro = medianaRGB(px.slice(Math.floor(px.length * 0.1), Math.floor(px.length * 0.45)));
+  const branco = medianaRGB(px.slice(Math.floor(px.length * 0.82), Math.floor(px.length * 0.97)));
+  // Só serve de referência se o branco for bem mais claro que a íris (olho aberto, sem sombra forte)
+  if (!branco || luz(branco) < 40 || luz(branco) < luz(escuro) * 1.4) return null;
+  regioes.push({ x, y, w, h, tipo: "luz" });
+  return branco;
+}
+
+// Referência de luz: quanto multiplicar cada canal (R, G, B) pra "desfazer" a iluminação.
+//  1) Luz do AMBIENTE: o branco dos olhos de TODAS as pessoas vistas nos últimos segundos, juntas.
+//     A correção é a mesma pra todo mundo no mesmo lugar, então quem tem a pele mais escura
+//     continua mais escuro que os outros, mas sala escura, sol ou lâmpada amarela são compensados.
+//  2) Ajuste FRACO pelo branco do olho da própria pessoa, só pra sombra no rosto dela. Fraco de
+//     propósito: olho meio fechado ou sombra da pálpebra não pode mudar muito o resultado.
+const BRANCO_REF = [235, 228, 220]; // cor típica do branco do olho com luz neutra
+const limitar = (v, a, b) => Math.max(a, Math.min(b, v));
+const luzCena = { rgb: null, leituras: [] };
+
+function referenciaDeLuz(c, pts, bochechas, agora, regioes, p) {
+  const bochecha = bochechas.filter(Boolean).sort((a, b) => luz(b) - luz(a))[0] ?? null;
+
+  // Lê o branco dos olhos desta pessoa e soma na média do ambiente
+  const escleras = [escleraDe(c, pts, 36, regioes), escleraDe(c, pts, 42, regioes)].filter(Boolean);
+  if (escleras.length) {
+    const e = escleras.sort((a, b) => luz(b) - luz(a))[0];
+    luzCena.leituras.push({ t: agora, rgb: e });
+    if (p) p.escleras = [...(p.escleras ?? []), luz(e)].slice(-15);
+  }
+  // Sombra e olho meio fechado só ESCURECEM o branco do olho. Por isso o ambiente usa as leituras
+  // mais claras dos últimos segundos (75%), e não a média: uma pessoa na sombra não puxa os outros.
+  luzCena.leituras = luzCena.leituras.filter(l => agora - l.t < CONFIG.memoriaLuzCena).slice(-60);
+  if (luzCena.leituras.length) {
+    const ord = [...luzCena.leituras].sort((a, b) => luz(a.rgb) - luz(b.rgb));
+    luzCena.rgb = ord[Math.floor((ord.length - 1) * 0.75)].rgb;
+  }
+  if (!luzCena.rgb) return { metodo: "nenhum", fator: [1, 1, 1], bochecha };
+
+  // 1) Ambiente
+  let fator = luzCena.rgb.map((v, i) => limitar(BRANCO_REF[i] / Math.max(v, 1), 0.5, 2.5));
+  let metodo = "ambiente";
+
+  // 2) Ajuste fraco pela própria pessoa (mediana das últimas leituras)
+  if (p?.escleras?.length >= 3 && CONFIG.forcaOlhos > 0) {
+    const ordenadas = [...p.escleras].sort((a, b) => a - b);
+    const mediana = ordenadas[ordenadas.length >> 1];
+    const k = limitar((luz(luzCena.rgb) / Math.max(mediana, 1)) ** CONFIG.forcaOlhos, 0.9, 1.12);
+    fator = fator.map(f => f * k);
+    metodo = "ambiente+pessoa";
+  }
+  return { metodo, fator, bochecha };
+}
+
+const aplicarLuz = (rgb, f) => rgb.map((v, i) => Math.round(Math.min(255, v * f[i])));
+
+// Pele: a cor da bochecha, corrigida pela luz
+// Guarda a cor crua e a correção separadas: o slider de compensação recalcula tudo na hora.
+function observarPele(luzRef) {
+  const bruto = luzRef.bochecha;
+  if (!bruto) return null;
+  return { classe: "pele", bruto, fator: luzRef.fator, metodo: luzRef.metodo };
+}
+
+// Aplica só uma parte da correção (ex.: 40% → fator 1,5 vira 1,5^0,4 ≈ 1,18)
+const fatorParcial = f => f.map(v => v ** CONFIG.compensacaoPele);
+const media3 = v => (v[0] + v[1] + v[2]) / 3;
+
+// Olhos: pixels dentro do contorno de cada olho, sem o branco do olho e sem a pupila
+function observarOlhos(c, pts) {
+  const px = [];
+  for (const [i0, i1] of [[36, 41], [42, 47]]) {
+    const poli = pts.slice(i0, i1 + 1);
+    const xs = poli.map(p => p.x), ys = poli.map(p => p.y);
+    const x = Math.min(...xs), y = Math.min(...ys), w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+    if (w < 14) return null; // olho pequeno demais na imagem pra dizer alguma coisa
+    px.push(...lerPixels(c, x, y, w, h, (qx, qy) => dentroDoPoligono(qx, qy, poli)));
+  }
+  if (px.length < 20) return null;
+  px.sort((a, b) => luz(a) - luz(b));
+  const iris = px.slice(Math.floor(px.length * 0.1), Math.floor(px.length * 0.45));
+  const rgb = medianaRGB(iris);
+  return rgb ? { classe: corDosOlhos(rgb), rgb } : null;
+}
+
+// Parece pele? Aceita diferença de brilho (testa brilhando ou na sombra), mas não de "tom".
+function parecePele(rgb, pele) {
+  const A = lab(rgb), B = lab(pele);
+  return Math.abs(A[0] - B[0]) < 22 && Math.hypot(A[1] - B[1], A[2] - B[2]) < 9;
+}
+
+// Parede branca, janela, lâmpada ou luz estourada: claro demais e quase sem cor. Nunca conta como cabelo.
+// (Cabelo branco de verdade raramente fica tão claro na webcam; se ficar, a IA prefere dizer "indefinido".)
+const claroDemais = rgb => luz(rgb) > CONFIG.limiteClaro && hsv(rgb)[1] < 0.15;
+
+// Cabelo: (1) varre de baixo pra cima a partir da sobrancelha: testa → cabelo → fundo.
+//             O cabelo começa onde a testa acaba e termina quando a cor MUDA de repente.
+//         (2) olha dos lados do rosto, onde fica o cabelo longo
+function observarCabelo(c, pts, luzRef, regioes) {
+  const W = c.canvas.width;
+  const pele = luzRef.bochecha;
+  // Compara já com a luz corrigida: na sombra, cabelo castanho e pele ficam parecidos demais.
+  const ehPele = rgb => pele && parecePele(aplicarLuz(rgb, luzRef.fator), aplicarLuz(pele, luzRef.fator));
+  const sobr = Math.min(...pts.slice(17, 27).map(p => p.y));
+  const B = pts[8].y - sobr;
+  const xL = pts[17].x, xR = pts[26].x, w = xR - xL;
+  const passo = Math.max(3, 0.07 * B);
+
+  // Fundo de referência LONGE da cabeça (cabelo volumoso não chega lá)
+  const fundoLonge = (y, h) => {
+    const longe = [[xL - 1.5 * w, xL - 1.2 * w], [xR + 1.2 * w, xR + 1.5 * w]].filter(([a, b]) => a >= 0 && b <= W);
+    return longe.map(([a, b]) => medianaRGB(lerPixels(c, a, y, b - a, h))).filter(Boolean);
+  };
+
+  // Lê uma faixa jogando fora os pixels claros demais (parede/janela aparecendo entre os fios)
+  const lerFaixa = (x, y, lw, h) => {
+    const todos = lerPixels(c, x, y, lw, h);
+    const bons = todos.filter(p => !claroDemais(p));
+    return { px: bons, rgb: medianaRGB(bons), claro: bons.length < todos.length * 0.4 };
+  };
+
+  // (1) Varredura de cima da sobrancelha até acima da cabeça
+  const x0 = xL + 0.25 * w, lw = 0.5 * w;
+  const linhas = [];
+  for (let y = sobr - 0.1 * B; y > sobr - 1.2 * B; y -= passo) {
+    const y0 = y - passo;
+    if (y0 < 0) break;
+    const f = lerFaixa(x0, y0, lw, passo);
+    linhas.push({ ...f, y0, testa: !f.claro && f.rgb && ehPele(f.rgb) });
+  }
+
+  let i = 0;
+  while (i < linhas.length && linhas[i].testa) i++;
+  const testa = i;
+  const topo = [];
+  let semCabeloEmCima = false;
+  if (i < linhas.length) {
+    const primeira = linhas[i];
+    const fundos = fundoLonge(primeira.y0, passo);
+    if (primeira.claro || !primeira.rgb || (fundos.length && fundos.some(f => deltaE(primeira.rgb, f) < 10))) {
+      semCabeloEmCima = testa > 0; // a testa vai direto pro fundo
+    } else {
+      let estranhas = 0;
+      for (; i < linhas.length; i++) {
+        const l = linhas[i];
+        if (l.claro || !l.rgb) break; // chegou na parede/janela
+        const atual = medianaRGB(topo.length ? topo.flatMap(t => t.px) : l.px);
+        if (topo.length && deltaE(l.rgb, atual) > 25) { // a cor mudou de repente: acabou o cabelo
+          if (++estranhas > 1) break;
+          continue;
+        }
+        topo.push(l); estranhas = 0;
+      }
+    }
+  }
+  for (const l of linhas) {
+    regioes.push({ x: x0, y: l.y0, w: lw, h: passo, tipo: topo.includes(l) ? "cabelo" : l.testa ? "pele" : "fundo" });
+  }
+
+  // (2) Laterais do rosto, na altura dos olhos até o nariz
+  const lados = [];
+  for (const [borda, baixo, dir] of [[0, 2, -1], [16, 14, 1]]) {
+    const xb = pts[borda].x, ya = pts[borda].y - 0.1 * B, h = pts[baixo].y - ya;
+    const sw = 0.22 * w;
+    const sx = dir < 0 ? xb - 0.3 * w : xb + 0.08 * w;
+    const lado = lerFaixa(sx, ya, sw, h);
+    const xf = dir < 0 ? xb - 1.1 * w : xb + 0.88 * w;
+    const fundo = xf >= 0 && xf + sw <= W ? medianaRGB(lerPixels(c, xf, ya, sw, h)) : null;
+    if (!lado.rgb || lado.claro || !fundo) continue; // sem fundo pra comparar, não dá pra ter certeza
+    const ehCabelo = !ehPele(lado.rgb) && deltaE(lado.rgb, fundo) >= 12;
+    regioes.push({ x: sx, y: ya, w: sw, h, tipo: ehCabelo ? "cabelo" : "fundo" });
+    if (ehCabelo) lados.push(...lado.px);
+  }
+
+  const px = [...topo.flatMap(l => l.px), ...lados];
+  if (px.length) return { classe: "cabelo", bruto: medianaRGB(px), fator: luzRef.fator };
+  // Testa que vai direto pro fundo, sem cabelo nos lados: careca ou cabelo raspado
+  if (pele && semCabeloEmCima) return { classe: "sem cabelo visível", semCabelo: true, bruto: pele, fator: luzRef.fator };
+  return null;
+}
+
+function corDoCabelo(rgb) {
+  const [h, s, v] = hsv(rgb);
+  if (v < 0.18) return "preto";
+  if (s < 0.10 && v > 0.62) return "grisalho/branco";
+  if ((h < 21 || h >= 345) && s > 0.6 && v > 0.35) return "ruivo";
+  if (h >= 25 && h < 60 && v > 0.5 && s > 0.2) return "loiro";
+  if (s > 0.35 && h >= 70 && h < 170) return "colorido (verde)";
+  if (s > 0.35 && h >= 170 && h < 260) return "colorido (azul)";
+  if (s > 0.35 && h >= 260 && h < 340) return "colorido (rosa/roxo)";
+  return v < 0.34 ? "castanho escuro" : "castanho";
+}
+
+function corDosOlhos(rgb) {
+  const [h, s, v] = hsv(rgb);
+  if (v < 0.22) return "castanho escuro";
+  if (s < 0.12) return v > 0.4 ? "cinza" : "castanho escuro";
+  if (h >= 190 && h < 260) return "azul";
+  if (h >= 70 && h < 190) return "verde";
+  if (h >= 25 && h < 55 && v > 0.45) return "mel";
+  return "castanho";
+}
+
+function tomDePele(rgb) {
+  let melhor = 0, menor = Infinity;
+  ESCALA_MONK.forEach((ref, i) => { const d = deltaE(rgb, ref); if (d < menor) { menor = d; melhor = i; } });
+  return melhor + 1;
+}
+const palavraTom = t => (t <= 3 ? "clara" : t <= 6 ? "média" : "escura");
+
+// Junta as observações e decide (ou não)
+function decidirTraco(lista, tipo) {
+  const K = kDe(tipo);
+  const validas = lista.filter(o => o.classe != null);
+  const n = validas.length;
+  if (!n) return { estado: "analisando", n: 0 };
+
+  let texto, conf, rgb;
+  const extra = {};
+  if (tipo === "idade") {
+    // Mediana das estimativas + uma faixa (o modelo erra alguns anos pra mais ou pra menos)
+    const anos = validas.map(o => o.anos).sort((a, b) => a - b);
+    const med = anos[n >> 1];
+    const q1 = anos[Math.floor((n - 1) * 0.25)], q3 = anos[Math.floor((n - 1) * 0.75)];
+    const lo = Math.max(0, Math.round(Math.min(q1, med - CONFIG.margemIdade)));
+    const hi = Math.round(Math.max(q3, med + CONFIG.margemIdade));
+    texto = `${lo} a ${hi} anos`;
+    conf = validas.filter(o => Math.abs(o.anos - med) <= 5).length / n;
+    extra.anos = med;
+    rgb = null;
+  } else if (tipo === "pele") {
+    const corrigidas = validas.map(o => aplicarLuz(o.bruto, fatorParcial(o.fator)));
+    rgb = medianaRGB(corrigidas);
+    const tom = tomDePele(rgb);
+    texto = `${palavraTom(tom)} · tom ${tom}/10`;
+    conf = corrigidas.filter(c => Math.abs(tomDePele(c) - tom) <= 1).length / n;
+    extra.bruto = medianaRGB(validas.map(o => o.bruto));
+    const fatores = validas.map(o => media3(o.fator)).sort((a, b) => a - b);
+    extra.fatorTotal = fatores[fatores.length >> 1];
+    extra.fatorAplicado = extra.fatorTotal ** CONFIG.compensacaoPele;
+    const metodos = validas.map(o => o.metodo);
+    extra.metodo = ["ambiente+pessoa", "ambiente", "nenhum"].reduce((a, b) =>
+      metodos.filter(m => m === b).length > metodos.filter(m => m === a).length ? b : a);
+  } else {
+    if (tipo === "cabelo") {
+      // a cor é calculada na hora (o slider de compensação muda o resultado)
+      validas.forEach(o => {
+        if (!o.bruto) return;
+        o.rgb = aplicarLuz(o.bruto, fatorParcial(o.fator));
+        o.classe = o.semCabelo ? "sem cabelo visível" : corDoCabelo(o.rgb);
+      });
+    }
+    const contagem = {};
+    for (const o of validas) contagem[o.classe] = (contagem[o.classe] ?? 0) + 1;
+    texto = Object.keys(contagem).reduce((a, b) => (contagem[b] > contagem[a] ? b : a));
+    conf = contagem[texto] / n;
+    rgb = tipo === "roupa" || tipo === "genero" ? null : medianaRGB(validas.filter(o => o.classe === texto).map(o => o.rgb));
+  }
+
+  if (n < K) return { estado: "analisando", n, palpite: texto, conf, rgb, ...extra };
+  if (conf >= CONFIG.concordanciaMinima) return { estado: "definido", texto, conf, rgb, n, ...extra };
+  return { estado: "inconclusivo", n, palpite: texto, conf, rgb, ...extra };
+}
+
+// --- Matemática de cor ---
+function hexParaRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+const rgbCss = rgb => `rgb(${rgb.join(",")})`;
+const luz = ([r, g, b]) => 0.299 * r + 0.587 * g + 0.114 * b;
+function hsv([r, g, b]) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h = (h * 60 + 360) % 360;
+  }
+  return [h, max ? d / max : 0, max];
+}
+function lab([r, g, b]) {
+  const f = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const R = f(r), G = f(g), B = f(b);
+  const g2 = t => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const X = g2((R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047);
+  const Y = g2(R * 0.2126 + G * 0.7152 + B * 0.0722);
+  const Z = g2((R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883);
+  return [116 * Y - 16, 500 * (X - Y), 200 * (Y - Z)];
+}
+function deltaE(a, b) { const A = lab(a), B = lab(b); return Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]); }
+function dentroDoPoligono(x, y, poli) {
+  let dentro = false;
+  for (let i = 0, j = poli.length - 1; i < poli.length; j = i++) {
+    const a = poli[i], b = poli[j];
+    if ((a.y > y) !== (b.y > y) && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) dentro = !dentro;
+  }
+  return dentro;
+}
+
+function fotoDe(caixa) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 200;
+  desenharRecorte(c, caixa, 1.4);
+  try { return c.toDataURL("image/jpeg", 0.8); } catch (e) { return ""; } // câmera de outro site sem permissão
+}
+
+function esquecerTodos() {
+  memoria.pessoas = []; memoria.proximoId = 1; luzCena.rgb = null; luzCena.leituras = []; memoria.candidatos = []; memoria.anteriores = [];
+  estado.sequencias = {}; estado.inicioSequencia = {}; estado.ativos = {}; estado.humano = {}; estado.fila = [];
+  linhasGaleria.clear();
+  $("galeria").textContent = "";
+  cartoesFichas.clear();
+  $("fichas-grade").textContent = "";
+  atualizarFichas(true);
+  registrar("expirou", "A memória foi apagada: todas as pessoas foram esquecidas.");
+}
+
+/* =====================================================================
+   ROUPA — tipo de roupa com o modelo CLIP
+   ---------------------------------------------------------------------
+   O CLIP compara uma imagem com frases. A IA recorta o tronco da pessoa
+   (abaixo do rosto) e pergunta qual das descrições do CONFIG combina
+   mais. Roda num "worker" (processo separado) pra não travar o vídeo.
+   ===================================================================== */
+const roupa = { worker: null, modo: null, estado: "desligado", erro: null, progresso: 0, ocupado: false, pedidos: new Map(), proximo: 1 };
+
+// A lógica do modelo fica numa função só. Ela roda num worker (processo separado, não trava o vídeo)
+// ou, se o navegador não deixar criar o worker, na própria página (plano B).
+function logicaRoupa(alvo) {
+  let classificar = null;
+  alvo.onmessage = async (e) => {
+    const m = e.data;
+    try {
+      if (m.tipo === "carregar") {
+        const { pipeline, env } = await import(m.urlBiblioteca);
+        env.allowLocalModels = false;
+        const arquivos = {};
+        classificar = await pipeline("zero-shot-image-classification", m.modelo, {
+          progress_callback: (p) => {
+            if (p.status !== "progress" || !p.total) return;
+            arquivos[p.file] = [p.loaded, p.total];
+            const v = Object.values(arquivos);
+            const carregado = v.reduce((s, x) => s + x[0], 0), total = v.reduce((s, x) => s + x[1], 0);
+            alvo.postMessage({ tipo: "progresso", pct: carregado / total });
+          },
+        });
+        alvo.postMessage({ tipo: "pronto" });
+      } else if (m.tipo === "classificar") {
+        const url = URL.createObjectURL(m.imagem);
+        const saida = await classificar(url, m.frases);
+        URL.revokeObjectURL(url);
+        alvo.postMessage({ tipo: "resultado", id: m.id, saida });
+      }
+    } catch (err) {
+      alvo.postMessage({ tipo: "erro", id: m.id, mensagem: String(err?.message ?? err) });
+    }
+  };
+}
+
+function iniciarRoupa(modo = "worker") {
+  if (!CONFIG.detectarRoupa) return;
+  if (modo === "worker" && roupa.worker) return;
+  roupa.modo = modo;
+  roupa.estado = "carregando";
+  roupa.erro = null;
+
+  if (modo === "worker") {
+    try {
+      // Worker "clássico" (sem type: module): funciona até abrindo o arquivo com dois cliques (file://)
+      const codigo = `(${logicaRoupa.toString()})(self);`;
+      roupa.worker = new Worker(URL.createObjectURL(new Blob([codigo], { type: "text/javascript" })));
+      roupa.worker.onmessage = e => tratarMensagemRoupa(e.data);
+      roupa.worker.onerror = e => {
+        console.error("Erro no worker de roupas", e);
+        planoBRoupa(e.message || "o navegador bloqueou o worker");
+      };
+    } catch (e) {
+      console.error("Não consegui criar o worker de roupas", e);
+      return planoBRoupa(e.message);
+    }
+  } else {
+    // Plano B: roda na própria página
+    const falso = { postMessage: m => tratarMensagemRoupa(m) };
+    logicaRoupa(falso);
+    roupa.worker = { postMessage: m => falso.onmessage({ data: m }) };
+  }
+  roupa.worker.postMessage({ tipo: "carregar", modelo: MODELOS.clip, urlBiblioteca: MODELOS.transformersJs });
+}
+
+function planoBRoupa(motivo) {
+  if (roupa.modo === "pagina") return falhaRoupa(motivo);
+  console.warn("Worker de roupas falhou (" + motivo + "). Tentando rodar na própria página.");
+  try { roupa.worker?.terminate?.(); } catch (e) { /* já morreu */ }
+  roupa.worker = null;
+  roupa.ocupado = false;
+  iniciarRoupa("pagina");
+}
+
+function falhaRoupa(motivo) {
+  roupa.estado = "erro";
+  roupa.erro = motivo;
+  roupa.ocupado = false;
+  registrar("expirou", `O modelo de roupas não carregou: ${esc(motivo)}`);
+}
+
+function tratarMensagemRoupa(m) {
+  if (m.tipo === "progresso") { roupa.progresso = m.pct; return; }
+  if (m.tipo === "pronto") { roupa.estado = "pronto"; registrar("ficha", "Modelo de roupas carregado."); return; }
+
+  const pedido = m.id != null ? roupa.pedidos.get(m.id) : null;
+  if (m.id != null) roupa.pedidos.delete(m.id);
+  roupa.ocupado = false;
+
+  if (m.tipo === "erro") {
+    console.error("Erro no modelo de roupas:", m.mensagem);
+    if (!pedido) planoBRoupa(m.mensagem); // erro ao carregar: tenta o plano B (ou desiste)
+    return;
+  }
+  if (m.tipo !== "resultado" || !pedido) return;
+
+  const p = memoria.pessoas.find(x => x.id === pedido.pessoaId);
+  if (!p) return; // memória apagada enquanto a IA pensava
+  // Junta as frases por categoria: soma a certeza e guarda qual variante combinou mais
+  const frases = frasesRoupa();
+  const porCategoria = new Map();
+  for (const r of m.saida) {
+    const f = frases.find(x => x.descricao === r.label) ?? { categoria: r.label, variante: r.label };
+    const c = porCategoria.get(f.categoria) ?? { nome: f.categoria, score: 0, variante: null, melhor: -1 };
+    c.score += r.score;
+    const nota = r.score * compatCor(pedido.cor, f.cor); // a cor só ajuda a escolher a peça
+    if (nota > c.melhor) { c.melhor = nota; c.variante = f.variante; }
+    porCategoria.set(f.categoria, c);
+  }
+  const leitura = [...porCategoria.values()].sort((a, b) => b.score - a.score);
+  p.roupaLeitura = leitura;
+  p.roupaTempo = (performance.now() - pedido.inicio) / 1000;
+  p.roupaCor = pedido.cor;
+  const top = leitura[0];
+  adicionarObservacao(p, "roupa", top && top.score >= CONFIG.confiancaRoupa
+    ? { classe: top.nome, score: top.score, variante: top.variante } : null);
+}
+
+// Todas as frases, cada uma lembrando de qual categoria e variante ela é
+function frasesRoupa() {
+  return CONFIG.roupas.flatMap(c => (c.variantes ?? [{ nome: c.nome, descricao: c.descricao }])
+    .map(v => ({ categoria: c.nome, variante: v.nome, descricao: v.descricao, cor: v.cor })));
+}
+
+// Quanto a cor medida combina com a cor esperada da peça (1 = igual, perto de 0 = nada a ver)
+function compatCor(medida, nomeCor) {
+  const ref = CONFIG.coresRoupa[nomeCor];
+  if (!medida || !ref) return 1;
+  const d = deltaE(medida, ref);
+  return Math.exp(-(d * d) / (2 * CONFIG.toleranciaCorRoupa ** 2));
+}
+function nomeDaCorRoupa(rgb) {
+  return Object.keys(CONFIG.coresRoupa).reduce((a, b) =>
+    deltaE(rgb, CONFIG.coresRoupa[b]) < deltaE(rgb, CONFIG.coresRoupa[a]) ? b : a);
+}
+
+// Recorta o tronco: abaixo do rosto, mais largo que ele
+function recorteTronco(c, b) {
+  const W = c.canvas.width, H = c.canvas.height;
+  const cx = b.x + b.w / 2;
+  const x0 = Math.max(0, cx - 1.3 * b.w), x1 = Math.min(W, cx + 1.3 * b.w);
+  const y0 = Math.min(H, b.y + 1.15 * b.h), y1 = Math.min(H, b.y + 1.15 * b.h + 2.2 * b.h);
+  if (y1 - y0 < 0.7 * b.h || x1 - x0 < b.w) return null; // quase não aparece o corpo
+  const escala = 256 / Math.max(x1 - x0, y1 - y0);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round((x1 - x0) * escala);
+  canvas.height = Math.round((y1 - y0) * escala);
+  canvas.getContext("2d").drawImage(c.canvas, x0, y0, x1 - x0, y1 - y0, 0, 0, canvas.width, canvas.height);
+  return { canvas, regiao: { x: x0, y: y0, w: x1 - x0, h: y1 - y0, tipo: "roupa" } };
+}
+
+function observarRoupa(p, caixa, agora) {
+  if (!CONFIG.detectarRoupa) return;
+  if (roupa.estado === "desligado") iniciarRoupa();
+  if (roupa.estado !== "pronto" || roupa.ocupado) return;
+  if (agora - (p.ultimaRoupa ?? -1e9) < CONFIG.intervaloRoupa) return;
+  p.ultimaRoupa = agora;
+
+  let c;
+  try { c = pixelsDoQuadro(agora); c.getImageData(0, 0, 1, 1); } catch (e) { return; }
+  const recorte = recorteTronco(c, caixa);
+  if (!recorte) { p.roupaMotivo = "o corpo quase não aparece · afaste-se um pouco da câmera"; return; }
+  p.roupaMotivo = null;
+  p.regiaoRoupa = { ...recorte.regiao, em: agora };
+
+  roupa.ocupado = true;
+  const id = roupa.proximo++;
+  // Cor do meio do tronco (longe dos braços e do fundo), com a mesma compensação de luz da pele
+  const cc = recorte.canvas.getContext("2d");
+  const bruto = medianaRGB(lerPixels(cc, recorte.canvas.width * 0.3, recorte.canvas.height * 0.15,
+                                         recorte.canvas.width * 0.4, recorte.canvas.height * 0.6));
+  const fatorLuz = luzCena.rgb
+    ? fatorParcial(luzCena.rgb.map((v, i) => limitar(BRANCO_REF[i] / Math.max(v, 1), 0.5, 2.5)))
+    : [1, 1, 1];
+  const cor = bruto ? aplicarLuz(bruto, fatorLuz) : null;
+  roupa.pedidos.set(id, { pessoaId: p.id, inicio: performance.now(), cor });
+  recorte.canvas.toBlob(blob => {
+    if (!blob) { roupa.ocupado = false; roupa.pedidos.delete(id); return; }
+    roupa.worker.postMessage({ tipo: "classificar", id, imagem: blob, frases: frasesRoupa().map(f => f.descricao) });
+  }, "image/jpeg", 0.9);
+}
+
+/* =====================================================================
+   ESTADO E ELEMENTOS
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const video = $("video"), img = $("img"), tela = $("tela"), ctx = tela.getContext("2d");
+const palco = $("palco"), areaCamera = $("area-camera"), aviso = $("aviso");
+
+const estado = {
+  vision: null,
+  fonte: null,
+  ocupado: false,
+  resultados: [],
+  sequencias: {},        // rótulo -> quantos quadros seguidos acima do limite
+  inicioSequencia: {},   // rótulo -> quando a sequência começou (pra medir o tempo da IA)
+  ativos: {},            // rótulo -> { ultimo } itens já identificados que ainda estão em cena
+  humano: {},            // rótulo -> "pendente" | "aprovado" | "rejeitado"
+  fila: [],              // sugestões da IA esperando um humano
+  quadros: 0,
+  fps: 0,
+  tempoAnalise: 0,
+  ultimaAnalise: 0,
+  ultimoTempoVideo: -1,
+  ultimoPainel: 0,
+};
+
+const placar = { ia: 0, humano: 0, expiradas: 0, temposIA: [], temposHumano: [] };
+const registro = [];
+const linhasGaleria = new Map();
+const cartoesFichas = new Map();
+let ultimasFichas = 0;
+
+const COR = { ok: "#22c55e", analisando: "#ef4444", pendente: "#f59e0b", rejeitado: "#64748b" };
+const COR_REGIAO = { pele: "#f59e0b", cabelo: "#e879f9", fundo: "#94a3b8", luz: "#38bdf8", roupa: "#a78bfa" };
+
+/* =====================================================================
+   INICIALIZAÇÃO
+   ===================================================================== */
+async function criarComFallback(criar, opcoes) {
+  // Tenta usar a placa de vídeo (mais rápido); se não der, usa o processador.
+  try {
+    return await criar({ ...opcoes, baseOptions: { ...opcoes.baseOptions, delegate: "GPU" } });
+  } catch (e) {
+    console.warn("GPU indisponível, usando CPU.", e);
+    return await criar({ ...opcoes, baseOptions: { ...opcoes.baseOptions, delegate: "CPU" } });
+  }
+}
+
+// Abre uma câmera específica (ou a padrão, se deviceId for vazio)
+async function abrirWebcam(deviceId) {
+  if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+  const tamanho = { width: { ideal: 1280 }, height: { ideal: 720 } };
+  const stream = await navigator.mediaDevices.getUserMedia({
+    // Sem câmera escolhida, usa a que o próprio Chrome tiver como padrão (sem preferir a "frontal",
+    // senão a câmera do Chromebook sempre ganha da webcam USB)
+    video: deviceId ? { ...tamanho, deviceId: { exact: deviceId } } : tamanho,
+    audio: false,
+  });
+  video.srcObject = stream;
+  await video.play();
+  estado.fonte = video;
+  estado.ultimoTempoVideo = -1;
+  estado.cameraAtual = stream.getVideoTracks()[0]?.getSettings().deviceId ?? "";
+  estado.nomeCamera = stream.getVideoTracks()[0]?.label ?? "";
+  ajustarPalco();
+}
+
+async function listarCameras() {
+  const sel = $("camera"), info = $("info-cameras");
+  let cams = [];
+  try {
+    cams = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput");
+  } catch (e) { console.error("Não consegui listar as câmeras", e); }
+  sel.innerHTML = cams.length
+    ? cams.map((c, i) => `<option value="${esc(c.deviceId)}">${esc(c.label || "Câmera " + (i + 1))}</option>`).join("")
+    : `<option value="">nenhuma câmera encontrada</option>`;
+  sel.value = estado.cameraAtual ?? "";
+  sel.disabled = false; // sempre dá pra clicar, mesmo com uma câmera só
+  const nomes = cams.map((c, i) => c.label || `Câmera ${i + 1}`).join(" · ");
+  info.textContent = cams.length === 1
+    ? `só 1 câmera encontrada (${nomes}): plugue a webcam e clique em ↻ procurar`
+    : `${cams.length} câmeras: ${nomes}`;
+  console.log("Câmeras encontradas:", cams.map(c => c.label || c.deviceId));
+}
+
+// "Procurar de novo": pede a câmera de novo (alguns Chromebooks só mostram a webcam nova depois disso)
+async function procurarCameras() {
+  const info = $("info-cameras");
+  info.textContent = "procurando…";
+  try { await abrirWebcam(estado.cameraAtual); } catch (e) { await abrirWebcam(null).catch(() => {}); }
+  await listarCameras();
+}
+
+async function trocarCamera(deviceId) {
+  try {
+    await abrirWebcam(deviceId);
+    try { localStorage.setItem("visaoIA.camera", deviceId); } catch (e) { /* sem armazenamento: tudo bem */ }
+    // Câmera nova = cores e luz diferentes: recomeça a medida da luz do ambiente
+    luzCena.rgb = null; luzCena.leituras = [];
+    registrar("ia", `Câmera trocada para <b>${esc(estado.nomeCamera || "outra câmera")}</b>.`);
+  } catch (e) {
+    console.error("Não consegui abrir essa câmera", e);
+    registrar("expirou", `Não consegui abrir essa câmera: ${esc(mensagemDeErro(e))}`);
+    await abrirWebcam(estado.cameraAtual).catch(() => abrirWebcam(null));
+  }
+  listarCameras();
+}
+
+async function iniciarFonte() {
+  if (CONFIG.fonte === "webcam") {
+    // Tenta a última câmera escolhida; se ela não estiver conectada, usa a padrão
+    let salva = null;
+    try { salva = localStorage.getItem("visaoIA.camera"); } catch (e) { /* sem armazenamento */ }
+    try { await abrirWebcam(salva); } catch (e) { if (!salva) throw e; await abrirWebcam(null); }
+    await listarCameras();
+    $("camera").addEventListener("change", e => { if (e.target.value) trocarCamera(e.target.value); });
+    $("procurar-cameras").addEventListener("click", procurarCameras);
+    // Plugou ou tirou uma webcam: atualiza a lista
+    navigator.mediaDevices.addEventListener?.("devicechange", listarCameras);
+  } else {
+    // Câmera por Wi-Fi (ESP32-CAM): o vídeo chega como uma imagem que se atualiza sozinha.
+    video.hidden = true;
+    img.hidden = false;
+    img.crossOrigin = "anonymous";
+    img.src = CONFIG.fonte;
+    await new Promise((ok, falha) => {
+      const t = setInterval(() => { if (img.naturalWidth > 0) { clearInterval(t); ok(); } }, 100);
+      img.onerror = () => { clearInterval(t); falha(new Error("Não consegui abrir a câmera em " + CONFIG.fonte)); };
+    });
+    estado.fonte = img;
+  }
+  ajustarPalco();
+}
+
+async function carregarDetector(d) {
+  d.carregando = true; d.erro = null;
+  montarToggles();
+  try {
+    await d.carregar(estado.vision);
+  } catch (e) {
+    console.error("Falha ao carregar", d.id, e);
+    d.erro = e.message; d.ativo = false;
+  } finally {
+    d.carregando = false;
+    montarToggles();
+  }
+}
+
+async function iniciar() {
+  try {
+    mostrarAviso("Ligando a câmera…");
+    await iniciarFonte();
+    mostrarAviso("Carregando modelos de IA…");
+    estado.vision = await FilesetResolver.forVisionTasks(CONFIG.wasm);
+    await Promise.all(DETECTORES.filter(d => d.ativo).map(carregarDetector));
+    aviso.hidden = true;
+    iniciarRoupa(); // o modelo de roupas carrega em segundo plano, sem travar o resto
+    requestAnimationFrame(loop);
+  } catch (e) {
+    console.error(e);
+    mostrarAviso(mensagemDeErro(e), true);
+  }
+}
+
+function mensagemDeErro(e) {
+  if (e?.name === "NotAllowedError") return "A câmera foi bloqueada. Clique no ícone de câmera na barra de endereço, permita o acesso e recarregue a página.";
+  if (e?.name === "NotFoundError") return "Nenhuma câmera encontrada neste computador.";
+  if (e?.name === "NotReadableError") return "A câmera está sendo usada por outro programa (Meet, Zoom…). Feche-o e recarregue.";
+  return "Erro: " + (e?.message ?? e);
+}
+
+function mostrarAviso(texto, erro = false) {
+  aviso.textContent = texto;
+  aviso.classList.toggle("erro", erro);
+  aviso.hidden = false;
+}
+
+/* =====================================================================
+   TAMANHO DA CÂMERA — encaixa na área disponível sem rolar a página
+   ===================================================================== */
+function tamanhoFonte() {
+  const f = estado.fonte;
+  if (f === video) return { W: video.videoWidth, H: video.videoHeight };
+  if (f === img) return { W: img.naturalWidth, H: img.naturalHeight };
+  return { W: 0, H: 0 };
+}
+
+function ajustarPalco() {
+  const { W, H } = tamanhoFonte();
+  const aw = areaCamera.clientWidth, ah = areaCamera.clientHeight;
+  if (!aw || !ah) return;
+  const proporcao = W && H ? W / H : 16 / 9;
+  let w = aw, h = aw / proporcao;
+  if (h > ah) { h = ah; w = ah * proporcao; }
+  palco.style.width = Math.floor(w) + "px";
+  palco.style.height = Math.floor(h) + "px";
+}
+new ResizeObserver(ajustarPalco).observe(areaCamera);
+
+/* =====================================================================
+   LOOP PRINCIPAL
+   A análise pode demorar mais que um quadro (o reconhecimento de
+   pessoas é pesado), então só começa uma nova quando a anterior acaba.
+   ===================================================================== */
+function loop(agora) {
+  requestAnimationFrame(loop);
+  if (estado.ocupado) return;
+  const { W, H } = tamanhoFonte();
+  if (!W || !H) return;
+
+  if (tela.width !== W || tela.height !== H) {
+    tela.width = W; tela.height = H;
+    ajustarPalco();
+  }
+
+  // Só analisa quando chegou um quadro novo.
+  if (estado.fonte === video) {
+    if (video.readyState < 2 || video.currentTime === estado.ultimoTempoVideo) return;
+    estado.ultimoTempoVideo = video.currentTime;
+  } else if (agora - estado.ultimaAnalise < 66) {
+    return; // ~15 quadros por segundo no máximo pra câmera Wi-Fi
+  }
+
+  estado.ocupado = true;
+  analisar(W, H)
+    .catch(e => console.error("Erro na análise", e))
+    .finally(() => { estado.ocupado = false; });
+}
+
+async function analisar(W, H) {
+  const inicio = performance.now();
+
+  // 1) Cada detector ativo analisa o quadro
+  const resultados = [];
+  for (const d of DETECTORES) {
+    if (!d.ativo || !d.modelo) continue;
+    try {
+      const lista = await d.detectar(estado.fonte, inicio, W, H);
+      for (const r of lista) resultados.push({ ...r, detector: d.id });
+    } catch (e) {
+      console.error("Erro no detector", d.id, e);
+    }
+  }
+
+  const fim = performance.now();
+  estado.tempoAnalise = estado.tempoAnalise * 0.8 + (fim - inicio) * 0.2;
+  const intervalo = fim - estado.ultimaAnalise;
+  if (intervalo > 0 && intervalo < 2000) estado.fps = estado.fps * 0.85 + (1000 / intervalo) * 0.15;
+  estado.ultimaAnalise = fim;
+  estado.quadros++;
+
+  // 2) Decide o que está identificado e registra quem tomou a decisão
+  decidir(resultados, inicio);
+  processarEventos(resultados, inicio);
+  for (const r of resultados) r.situacao = situacao(r);
+  estado.resultados = resultados;
+
+  // 3) Desenha as caixas e atualiza os painéis
+  desenhar(resultados, W, H);
+  if (fim - estado.ultimoPainel > 150) {
+    estado.ultimoPainel = fim;
+    atualizarPaineis(resultados, W, H);
+  }
+}
+
+/* =====================================================================
+   DECISÃO — a regra que transforma confiança em veredito
+   ===================================================================== */
+function decidir(resultados, agora) {
+  const seq = estado.sequencias;
+  const acima = new Set(resultados
+    .filter(r => !r.naoConfirmavel && r.confianca >= CONFIG.limiteConfianca)
+    .map(r => r.rotulo));
+  for (const rotulo of new Set([...Object.keys(seq), ...acima])) {
+    if (acima.has(rotulo)) {
+      if (!seq[rotulo]) estado.inicioSequencia[rotulo] = agora;
+      seq[rotulo] = (seq[rotulo] ?? 0) + 1;
+    } else {
+      seq[rotulo] = 0;
+    }
+  }
+  for (const r of resultados) {
+    const jaEmCena = !!estado.ativos[r.rotulo]; // evita piscar se a IA perder o item por 1 quadro
+    r.sequencia = Math.min(seq[r.rotulo] ?? 0, CONFIG.quadrosParaConfirmar);
+    r.confirmado = !r.naoConfirmavel && r.confianca >= CONFIG.limiteConfianca &&
+      (r.sequencia >= CONFIG.quadrosParaConfirmar || jaEmCena);
+  }
+}
+
+// Quando algo é identificado, alguém "decide": a IA (modo automático)
+// ou um humano (modo humano decide). Tudo vai pro registro.
+function processarEventos(resultados, agora) {
+  const confirmados = new Map();
+  for (const r of resultados) {
+    if (!r.confirmado) continue;
+    const anterior = confirmados.get(r.rotulo);
+    if (!anterior || r.confianca > anterior.confianca) confirmados.set(r.rotulo, r);
+  }
+
+  for (const [rotulo, r] of confirmados) {
+    const ativo = estado.ativos[rotulo];
+    if (ativo) { ativo.ultimo = agora; continue; }
+
+    estado.ativos[rotulo] = { ultimo: agora };
+    const tempoIA = (agora - (estado.inicioSequencia[rotulo] ?? agora)) / 1000;
+
+    if (CONFIG.modo === "auto") {
+      placar.ia++;
+      placar.temposIA.push(tempoIA);
+      registrar("ia", `A IA decidiu sozinha: <b>${esc(rotulo)}</b> (${pct(r.confianca)}) em ${seg(tempoIA)}`);
+    } else {
+      placar.temposIA.push(tempoIA);
+      estado.humano[rotulo] = "pendente";
+      estado.fila.push({ rotulo, confianca: r.confianca, tempoIA, sugeridoEm: agora });
+      registrar("sugestao", `A IA sugeriu <b>${esc(rotulo)}</b> (${pct(r.confianca)}) em ${seg(tempoIA)}. Esperando um humano…`);
+    }
+  }
+
+  // Itens que saíram de cena
+  for (const [rotulo, ativo] of Object.entries(estado.ativos)) {
+    if (agora - ativo.ultimo <= CONFIG.tempoParaSair) continue;
+    delete estado.ativos[rotulo];
+    if (estado.humano[rotulo] === "pendente") {
+      placar.expiradas++;
+      estado.fila = estado.fila.filter(f => f.rotulo !== rotulo);
+      registrar("expirou", `<b>${esc(rotulo)}</b> saiu de cena antes de o humano decidir.`);
+    }
+    delete estado.humano[rotulo];
+  }
+}
+
+function decisaoHumana(aprovou) {
+  const item = estado.fila.shift();
+  if (!item) return;
+  const tempo = (performance.now() - item.sugeridoEm) / 1000;
+  placar.humano++;
+  placar.temposHumano.push(tempo);
+  if (estado.ativos[item.rotulo]) estado.humano[item.rotulo] = aprovou ? "aprovado" : "rejeitado";
+  registrar(aprovou ? "aprovou" : "rejeitou",
+    `Um humano ${aprovou ? "aprovou" : "rejeitou"} <b>${esc(item.rotulo)}</b> em ${seg(tempo)}`);
+  const { W, H } = tamanhoFonte();
+  atualizarPaineis(estado.resultados, W, H);
+}
+
+function situacao(r) {
+  if (r.naoConfirmavel) return { classe: "analisando", texto: r.detalhe, etiqueta: r.etiqueta };
+  const limite = Math.round(CONFIG.limiteConfianca * 100);
+  if (!r.confirmado) {
+    return r.confianca < CONFIG.limiteConfianca
+      ? { classe: "analisando", texto: `abaixo do limite (${limite}%)`, etiqueta: "ANALISANDO…" }
+      : { classe: "analisando", texto: `confirmando ${r.sequencia}/${CONFIG.quadrosParaConfirmar}`, etiqueta: "ANALISANDO…" };
+  }
+  const reconhecida = r.detector === "pessoas" ? "reconhecida" : "identificado";
+  if (CONFIG.modo === "auto") return { classe: "ok", texto: `${reconhecida} pela IA`, etiqueta: "IDENTIFICADO" };
+  const h = estado.humano[r.rotulo];
+  if (h === "aprovado") return { classe: "ok", texto: "aprovado por humano", etiqueta: "APROVADO" };
+  if (h === "rejeitado") return { classe: "rejeitado", texto: "rejeitado por humano", etiqueta: "REJEITADO" };
+  return { classe: "pendente", texto: "aguardando humano", etiqueta: "AGUARDANDO HUMANO" };
+}
+
+/* =====================================================================
+   DESENHO
+   ===================================================================== */
+function desenhar(resultados, W, H) {
+  ctx.clearRect(0, 0, W, H);
+  const espelhar = CONFIG.espelhar;
+  const espessura = Math.max(2, W / 320);
+  const fonte = Math.max(12, Math.round(W / 55));
+  const mx = x => (espelhar ? W - x : x);
+
+  for (const r of resultados) {
+    const s = r.situacao;
+    const cor = COR[s.classe];
+    let { x, y, w, h } = r.caixa;
+    if (espelhar) x = W - x - w;
+
+    // Esqueleto da mão (linhas + pontos)
+    if (r.pontos) {
+      ctx.strokeStyle = cor; ctx.globalAlpha = 0.7; ctx.lineWidth = Math.max(1, W / 640);
+      for (const c of r.conexoes ?? []) {
+        const a = r.pontos[c.start], b = r.pontos[c.end];
+        if (!a || !b) continue;
+        ctx.beginPath(); ctx.moveTo(mx(a.x), a.y); ctx.lineTo(mx(b.x), b.y); ctx.stroke();
+      }
+      ctx.globalAlpha = 1; ctx.fillStyle = cor;
+      for (const p of r.pontos) {
+        ctx.beginPath(); ctx.arc(mx(p.x), p.y, Math.max(2, W / 400), 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    // Pedaços da imagem usados nas fichas
+    if (CONFIG.mostrarRegioes && r.regioes) {
+      ctx.save();
+      ctx.lineWidth = Math.max(1, W / 700);
+      for (const g of r.regioes) {
+        ctx.strokeStyle = COR_REGIAO[g.tipo];
+        ctx.setLineDash(g.tipo === "fundo" ? [4, 3] : []);
+        ctx.strokeRect(espelhar ? W - g.x - g.w : g.x, g.y, g.w, g.h);
+      }
+      ctx.restore();
+    }
+
+    // Retângulo
+    ctx.lineWidth = espessura;
+    ctx.strokeStyle = cor;
+    ctx.strokeRect(x, y, w, h);
+
+    // Etiqueta
+    const pctTexto = r.naoConfirmavel ? "" : ` ${pct(r.confianca)}`;
+    const texto = `${r.rotulo.toUpperCase()}${pctTexto} · ${s.etiqueta}`;
+    ctx.font = `600 ${fonte}px ui-monospace, Menlo, Consolas, monospace`;
+    const largura = ctx.measureText(texto).width + 12;
+    const altura = fonte + 10;
+    const ex = Math.min(Math.max(0, x - espessura / 2), W - largura);
+    const ey = y - altura >= 0 ? y - altura : y;
+    ctx.fillStyle = cor;
+    ctx.fillRect(ex, ey, largura, altura);
+    ctx.fillStyle = s.classe === "ok" || s.classe === "pendente" ? "#0b0f14" : "#ffffff";
+    ctx.textBaseline = "middle";
+    ctx.fillText(texto, ex + 6, ey + altura / 2 + 1);
+  }
+}
+
+// Recorta o pedaço da imagem onde está o item (pra miniaturas e fotos).
+function desenharRecorte(canvas, caixa, margem = 1.15) {
+  const c = canvas.getContext("2d");
+  const S = canvas.width;
+  const { x, y, w, h } = caixa;
+  const lado = Math.max(w, h) * margem;
+  const sx = x + w / 2 - lado / 2, sy = y + h / 2 - lado / 2;
+  c.fillStyle = "#000"; c.fillRect(0, 0, S, S);
+  c.save();
+  if (CONFIG.espelhar) { c.translate(S, 0); c.scale(-1, 1); }
+  try { c.drawImage(estado.fonte, sx, sy, lado, lado, 0, 0, S, S); } catch (e) { /* quadro indisponível */ }
+  c.restore();
+}
+
+/* =====================================================================
+   PAINÉIS, TABELA, GALERIA E VEREDITO
+   ===================================================================== */
+function atualizarPaineis(resultados, W, H) {
+  const N = CONFIG.quadrosParaConfirmar;
+  const limite = Math.round(CONFIG.limiteConfianca * 100);
+
+  // Painel do sistema (canto superior esquerdo da câmera)
+  const ativos = DETECTORES.filter(d => d.ativo && d.modelo).map(d => d.nome.replace(" (só detecção)", ""));
+  const linhas = [
+    ["Análises/s", Math.round(estado.fps)],
+    ["Tempo", `${estado.tempoAnalise.toFixed(0)} ms`],
+    ["Quadros", estado.quadros.toLocaleString("pt-BR")],
+    ["Fonte", CONFIG.fonte === "webcam" ? (estado.nomeCamera || "Webcam").replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)$/i, "").slice(0, 28) : "Câmera Wi-Fi"],
+    ["Resolução", `${W}×${H}`],
+    ["Modelos", ativos.join(", ") || "nenhum"],
+    ["Memória", `${memoria.pessoas.length} pessoa${memoria.pessoas.length === 1 ? "" : "s"}`],
+    ["Regra", `≥${limite}% por ${N} quadros`],
+  ];
+  $("lista-sistema").innerHTML = linhas.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+
+  // Tabela "Na câmera agora"
+  const ordenados = resultados.slice().sort((a, b) => b.confianca - a.confianca).slice(0, 12);
+  const tbody = $("tabela");
+  tbody.textContent = "";
+  for (const r of ordenados) {
+    const tr = document.createElement("tr");
+    tr.className = r.situacao.classe;
+
+    const tdMini = document.createElement("td");
+    const mini = document.createElement("canvas");
+    mini.className = "mini"; mini.width = 80; mini.height = 80;
+    desenharRecorte(mini, r.caixa);
+    tdMini.append(mini);
+
+    const tdNome = document.createElement("td");
+    tdNome.innerHTML = `<div class="nome">${esc(r.rotulo)}</div><div class="estado">${esc(r.situacao.texto)}</div>`;
+
+    const p = Math.round(r.confianca * 100);
+    const tdConf = document.createElement("td");
+    tdConf.className = "conf";
+    tdConf.innerHTML = `${p}%<div class="barra"><i style="width:${p}%"></i><b style="left:${limite}%"></b></div>`;
+
+    tr.append(tdMini, tdNome, tdConf);
+    tbody.append(tr);
+  }
+  $("tabela-vazia").hidden = ordenados.length > 0;
+  $("contagem").textContent = resultados.length;
+
+  atualizarGaleria();
+  atualizarFichas();
+  atualizarVeredito(resultados, limite, N);
+  atualizarPlacar();
+}
+
+function atualizarGaleria() {
+  const agora = performance.now();
+  const lista = $("galeria");
+  $("galeria-vazia").hidden = memoria.pessoas.length > 0;
+  $("contagem-pessoas").textContent = memoria.pessoas.length;
+
+  for (const p of memoria.pessoas) {
+    let li = linhasGaleria.get(p.id);
+    if (!li) {
+      li = document.createElement("li");
+      const foto = p.foto ? `<img src="${p.foto}" alt="">` : `<div class="sem-foto"></div>`;
+      li.innerHTML = `${foto}<div><div class="nome">${esc(p.nome)}</div><div class="estado"></div></div>`;
+      if (p.nova) { li.classList.add("nova"); p.nova = false; }
+      lista.prepend(li);
+      linhasGaleria.set(p.id, li);
+    }
+    const presente = agora - p.ultima < 1200;
+    li.classList.toggle("presente", presente);
+    const quando = presente ? "na câmera agora" : `vista há ${tempoRelativo(agora - p.ultima)}`;
+    li.querySelector(".estado").textContent =
+      `${quando} · ${p.vezes} ${p.vezes > 1 ? "aparições" : "aparição"} · ${p.amostras.length} amostras`;
+  }
+}
+
+function atualizarFichas(forcar = false) {
+  const agora = performance.now();
+  $("contagem-fichas").textContent = memoria.pessoas.length;
+  if (!document.body.classList.contains("ver-fichas")) return;
+  if (!forcar && agora - ultimasFichas < 400) return;
+  ultimasFichas = agora;
+  atualizarInfoLuz();
+
+  const grade = $("fichas-grade");
+  $("fichas-vazio").hidden = memoria.pessoas.length > 0;
+  const K = CONFIG.observacoesParaDecidir;
+
+  for (const p of memoria.pessoas) {
+    let cartao = cartoesFichas.get(p.id);
+    if (!cartao) {
+      cartao = document.createElement("article");
+      cartao.className = "ficha";
+      cartao.innerHTML = `
+        ${p.foto ? `<img class="foto" src="${p.foto}" alt="">` : `<div class="foto"></div>`}
+        <div class="ficha-corpo">
+          <div class="ficha-cabecalho"><h3>${esc(p.nome.toUpperCase())}</h3><span class="status"></span></div>
+          ${Object.keys(NOMES_TRACOS).map(t => `
+            <div class="traco" data-traco="${t}">
+              <span class="rotulo">${NOMES_TRACOS[t]}</span>
+              <span class="cor"></span>
+              <span class="valor"></span>
+              <span class="certeza"></span>
+            </div>`).join("")}
+          <div class="ficha-rodape"></div>
+        </div>`;
+      grade.append(cartao);
+      cartoesFichas.set(p.id, cartao);
+    }
+
+    const presente = agora - p.ultima < 1200;
+    cartao.classList.toggle("presente", presente);
+    cartao.querySelector(".status").textContent =
+      presente ? "● na câmera agora" : `vista há ${tempoRelativo(agora - p.ultima)}`;
+
+    for (const tipo of Object.keys(NOMES_TRACOS)) {
+      const K = kDe(tipo);
+      const d = decidirTraco(p.tracos[tipo], tipo);
+      const linha = cartao.querySelector(`[data-traco="${tipo}"]`);
+      const definido = d.estado === "definido";
+      linha.className = "traco " + (definido ? "definido" : "indefinido");
+
+      const cor = linha.querySelector(".cor");
+      cor.classList.toggle("vazia", !d.rgb);
+      cor.style.background = d.rgb ? rgbCss(d.rgb) : "";
+
+      let valor, detalhe;
+      const modeloIdade = DETECTORES.find(d => d.id === "pessoas")?.temIdade;
+      const semIdade = (tipo === "idade" && !(CONFIG.estimarIdade && modeloIdade)) ||
+                       (tipo === "genero" && !(CONFIG.estimarGenero && modeloIdade));
+      if (definido) {
+        valor = d.texto;
+        detalhe = tipo === "idade" ? `estimativa central: ${Math.round(d.anos)} anos · ${d.n} observações`
+          : tipo === "genero" ? `palpite pela aparência do rosto · ${d.n} observações`
+          : `${d.n} observações`;
+      } else if (d.estado === "inconclusivo") {
+        valor = "indefinido";
+        detalhe = `as observações não batem · palpite: ${d.palpite}`;
+      } else if (semIdade && !d.n) {
+        valor = "indefinido";
+        detalhe = `${tipo === "genero" ? "gênero" : "idade"} desligado ou o modelo não carregou`;
+      } else if (tipo === "roupa" && !d.n) {
+        valor = "indefinido";
+        detalhe = !CONFIG.detectarRoupa ? "detecção de roupa desligada"
+          : roupa.estado === "carregando" ? `carregando o modelo de roupas… ${Math.round(roupa.progresso * 100)}% (só demora na primeira vez)`
+          : roupa.estado === "erro" ? `o modelo de roupas não carregou: ${roupa.erro ?? "erro desconhecido"}`
+          : p.roupaMotivo ?? "esperando uma leitura do tronco";
+      } else if (p.semPixels && tipo !== "idade" && tipo !== "genero") {
+        valor = "indefinido";
+        detalhe = "não consigo ler as cores desta câmera";
+      } else {
+        valor = "indefinido";
+        detalhe = d.n ? `analisando ${d.n}/${K} · palpite: ${d.palpite}` : "esperando uma boa imagem do rosto";
+      }
+      let explicacao = esc(detalhe);
+      if (tipo === "roupa" && p.roupaLeitura) {
+        const atual = p.roupaLeitura[0];
+        if (atual?.variante && atual.variante !== atual.nome) explicacao += `<br>peça na leitura atual: <b>${esc(atual.variante)}</b>`;
+        if (p.roupaCor) {
+          explicacao += `<br>cor medida <i class="cor-mini" style="background:${rgbCss(p.roupaCor)}"></i> ` +
+            `parece ${esc(nomeDaCorRoupa(p.roupaCor))}`;
+        }
+        explicacao += "<br>última leitura: " + p.roupaLeitura.slice(0, 3)
+          .map(l => `${esc(l.nome)}${l.variante && l.variante !== l.nome ? ` (${esc(l.variante)})` : ""} ${pct(l.score)}`)
+          .join(" · ") + ` · ${seg(p.roupaTempo)}`;
+      }
+      if (tipo === "pele" && d.bruto && d.rgb) {
+        const como = {
+          "ambiente+pessoa": "luz do ambiente + ajuste leve pela sombra no rosto",
+          ambiente: "luz do ambiente (branco dos olhos de todos)",
+          nenhum: "sem compensação ainda",
+        }[d.metodo];
+        explicacao += `<br>câmera viu <i class="cor-mini" style="background:${rgbCss(d.bruto)}"></i> → ` +
+          `corrigida <i class="cor-mini" style="background:${rgbCss(d.rgb)}"></i> · ${como}` +
+          `<br>correção total ×${d.fatorTotal.toFixed(2)} · aplicada ×${d.fatorAplicado.toFixed(2)}` +
+          ` (${Math.round(CONFIG.compensacaoPele * 100)}%)`;
+      }
+      linha.querySelector(".valor").innerHTML = `${esc(valor)}<small>${explicacao}</small>`;
+
+      const certeza = definido || d.estado === "inconclusivo"
+        ? Math.round(d.conf * 100)
+        : Math.round((Math.min(d.n, K) / K) * 100);
+      linha.querySelector(".certeza").innerHTML = d.n
+        ? `${definido || d.estado === "inconclusivo" ? certeza + "%" : `${Math.min(d.n, K)}/${K}`}<div class="barra"><i style="width:${certeza}%"></i></div>`
+        : "";
+    }
+
+    cartao.querySelector(".ficha-rodape").textContent =
+      `memorizada às ${p.memorizadaEm.toLocaleTimeString("pt-BR")} · ` +
+      `${p.vezes} ${p.vezes > 1 ? "aparições" : "aparição"} · ${p.amostras.length} amostras do rosto`;
+  }
+}
+
+const compensacao = $("compensacao"), compensacaoValor = $("compensacao-valor");
+compensacao.value = Math.round(CONFIG.compensacaoPele * 100);
+compensacaoValor.textContent = compensacao.value + "%";
+compensacao.addEventListener("input", () => {
+  CONFIG.compensacaoPele = compensacao.value / 100;
+  compensacaoValor.textContent = compensacao.value + "%";
+  atualizarFichas(true); // recalcula todas as fichas com as observações que já existem
+});
+
+function atualizarInfoLuz() {
+  const info = $("compensacao-info");
+  if (!luzCena.rgb) { info.textContent = "0% = cor crua da câmera · 100% = correção total · ambiente ainda não medido"; return; }
+  const total = media3(luzCena.rgb.map((v, i) => limitar(BRANCO_REF[i] / Math.max(v, 1), 0.5, 2.5)));
+  const aplicado = total ** CONFIG.compensacaoPele;
+  const sentido = total > 1.03 ? "clareando" : total < 0.97 ? "escurecendo" : "quase sem mudar";
+  info.textContent = `luz do ambiente pede ×${total.toFixed(2)} · aplicando ×${aplicado.toFixed(2)} (${sentido})`;
+}
+
+function mostrarAba(aba) {
+  document.body.classList.toggle("ver-fichas", aba === "fichas");
+  $("aba-camera").classList.toggle("ativo", aba === "camera");
+  $("aba-fichas").classList.toggle("ativo", aba === "fichas");
+  if (aba === "fichas") atualizarFichas(true);
+  else ajustarPalco();
+}
+$("aba-camera").addEventListener("click", () => mostrarAba("camera"));
+$("aba-fichas").addEventListener("click", () => mostrarAba("fichas"));
+
+function atualizarVeredito(resultados, limite, N) {
+  const caixa = $("veredito");
+  const titulo = $("veredito-texto"), motivo = $("veredito-motivo");
+  caixa.classList.remove("identificado", "analisando", "pendente", "rejeitado");
+  $("acoes").hidden = true;
+
+  const confirmados = resultados.filter(r => r.confirmado);
+
+  if (CONFIG.modo === "humano" && estado.fila.length > 0) {
+    const item = estado.fila[0];
+    const espera = (performance.now() - item.sugeridoEm) / 1000;
+    caixa.classList.add("pendente");
+    $("acoes").hidden = false;
+    titulo.textContent = "AGUARDANDO DECISÃO HUMANA";
+    motivo.textContent =
+      `A IA sugere: ${item.rotulo} (${pct(item.confianca)}). Ela decidiu em ${seg(item.tempoIA)}; ` +
+      `você está pensando há ${seg(espera)}.` + (estado.fila.length > 1 ? ` (+${estado.fila.length - 1} na fila)` : "");
+    return;
+  }
+
+  if (CONFIG.modo === "humano") {
+    const aprovados = confirmados.filter(r => estado.humano[r.rotulo] === "aprovado");
+    const rejeitados = confirmados.filter(r => estado.humano[r.rotulo] === "rejeitado");
+    if (aprovados.length > 0) {
+      caixa.classList.add("identificado");
+      titulo.textContent = "APROVADO POR HUMANO: " + resumo(aprovados);
+      motivo.textContent = "A IA sugeriu e uma pessoa confirmou. A decisão final foi humana.";
+      return;
+    }
+    if (rejeitados.length > 0) {
+      caixa.classList.add("rejeitado");
+      titulo.textContent = "REJEITADO POR HUMANO: " + resumo(rejeitados);
+      motivo.textContent = "A IA tinha certeza, mas uma pessoa discordou. Nada acontece.";
+      return;
+    }
+  }
+
+  if (confirmados.length > 0) {
+    caixa.classList.add("identificado");
+    titulo.textContent = "IDENTIFICADO: " + resumo(confirmados);
+    const melhor = confirmados.reduce((a, b) => (b.confianca > a.confianca ? b : a));
+    motivo.textContent =
+      `Nenhum humano participou. A certeza ficou acima de ${limite}% por ${N} quadros seguidos. ` +
+      `Maior certeza: ${melhor.rotulo} (${pct(melhor.confianca)}).`;
+  } else if (resultados.length > 0) {
+    caixa.classList.add("analisando");
+    const novos = resultados.filter(r => r.naoConfirmavel);
+    titulo.textContent = novos.length ? "ROSTO NOVO · MEMORIZANDO…" : "ANALISANDO…";
+    motivo.textContent = novos.length
+      ? "A IA não conhece este rosto. Ela está guardando a 'assinatura' dele para reconhecer depois."
+      : `A IA viu algo (${resumo(resultados)}), mas ainda não tem certeza suficiente: ` +
+        `precisa de pelo menos ${limite}% por ${N} quadros seguidos.`;
+  } else {
+    titulo.textContent = "NADA DETECTADO";
+    motivo.textContent = "Nenhum modelo ativo encontrou nada na imagem.";
+  }
+}
+
+function atualizarPlacar() {
+  const media = arr => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
+  const mIA = media(placar.temposIA), mHu = media(placar.temposHumano);
+  $("p-ia").textContent = placar.ia;
+  $("p-hu").textContent = placar.humano;
+  $("p-tia").textContent = mIA === null ? "—" : seg(mIA);
+  $("p-thu").textContent = mHu === null ? "—" : seg(mHu);
+  $("contagem-decisoes").textContent =
+    placar.ia + placar.humano + (placar.expiradas ? ` · ${placar.expiradas} sem decisão` : "");
+}
+
+function registrar(tipo, html) {
+  const hora = new Date().toLocaleTimeString("pt-BR");
+  registro.unshift({ tipo, hora, html });
+  if (registro.length > 80) registro.pop();
+  $("registro").innerHTML = registro
+    .map(e => `<li class="${e.tipo}"><time>${e.hora}</time>${e.html}</li>`).join("");
+  atualizarPlacar();
+}
+
+function resumo(itens) {
+  const nomes = [], contagem = {};
+  for (const r of itens) {
+    if (r.detector === "pessoas") { if (!nomes.includes(r.rotulo)) nomes.push(r.rotulo); continue; }
+    const base = r.rotulo.startsWith("Mão") ? "mão" : r.rotulo.toLowerCase();
+    contagem[base] = (contagem[base] ?? 0) + 1;
+  }
+  return [...nomes, ...Object.entries(contagem).map(([nome, n]) => `${n} ${n > 1 ? plural(nome) : nome}`)].join(", ");
+}
+function plural(nome) {
+  if (nome === "mão") return "mãos";
+  if (nome.endsWith("l")) return nome.slice(0, -1) + "is";
+  if (/[aeiouã]$/.test(nome)) return nome + "s";
+  return nome + "es";
+}
+function tempoRelativo(ms) {
+  const s = Math.round(ms / 1000);
+  return s < 60 ? `${s} s` : `${Math.round(s / 60)} min`;
+}
+const pct = s => Math.round(s * 100) + "%";
+const seg = s => s.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " s";
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+/* =====================================================================
+   CONTROLES
+   ===================================================================== */
+function montarToggles() {
+  const area = $("toggles");
+  area.innerHTML = "";
+  for (const d of DETECTORES) {
+    const label = document.createElement("label");
+    label.className = "chip";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = d.ativo;
+    cb.disabled = !!d.carregando;
+    cb.addEventListener("change", async () => {
+      d.ativo = cb.checked;
+      if (d.ativo && !d.modelo && estado.vision) await carregarDetector(d);
+    });
+    let texto = " " + d.nome;
+    if (d.carregando) texto += " (carregando…)";
+    if (d.erro) texto += " (erro ao carregar)";
+    label.append(cb, texto);
+    area.append(label);
+  }
+}
+
+function definirModo(modo) {
+  CONFIG.modo = modo;
+  $("modo-auto").classList.toggle("ativo", modo === "auto");
+  $("modo-humano").classList.toggle("ativo", modo === "humano");
+  const selo = $("selo-modo");
+  selo.className = "selo " + (modo === "auto" ? "auto" : "humano");
+  selo.textContent = modo === "auto" ? "MODO AUTOMÁTICO" : "HUMANO NO CONTROLE";
+  // Recomeça as decisões: o que estiver em cena vai ser decidido de novo no modo novo.
+  estado.ativos = {}; estado.humano = {}; estado.fila = [];
+  registrar(modo === "auto" ? "ia" : "aprovou",
+    modo === "auto" ? "Modo automático: a IA passa a decidir sozinha." : "Modo humano: a IA só sugere, uma pessoa decide.");
+}
+$("modo-auto").addEventListener("click", () => definirModo("auto"));
+$("modo-humano").addEventListener("click", () => definirModo("humano"));
+
+$("btn-aprovar").addEventListener("click", () => decisaoHumana(true));
+$("btn-rejeitar").addEventListener("click", () => decisaoHumana(false));
+$("btn-esquecer").addEventListener("click", esquecerTodos);
+document.addEventListener("keydown", e => {
+  if (CONFIG.modo !== "humano" || !estado.fila.length || e.repeat) return;
+  const k = e.key.toLowerCase();
+  if (k === "a") decisaoHumana(true);
+  if (k === "r") decisaoHumana(false);
+});
+
+const limite = $("limite"), limiteValor = $("limite-valor");
+limite.value = Math.round(CONFIG.limiteConfianca * 100);
+limiteValor.textContent = limite.value + "%";
+limite.addEventListener("input", () => {
+  CONFIG.limiteConfianca = limite.value / 100;
+  limiteValor.textContent = limite.value + "%";
+});
+
+const espelhar = $("espelhar");
+espelhar.checked = CONFIG.espelhar;
+const aplicarEspelho = () => {
+  CONFIG.espelhar = espelhar.checked;
+  video.classList.toggle("espelhado", CONFIG.espelhar);
+  img.classList.toggle("espelhado", CONFIG.espelhar);
+};
+espelhar.addEventListener("change", aplicarEspelho);
+aplicarEspelho();
+
+const regioesCb = $("regioes");
+regioesCb.checked = CONFIG.mostrarRegioes;
+regioesCb.addEventListener("change", () => { CONFIG.mostrarRegioes = regioesCb.checked; });
+
+const roupasCb = $("roupas");
+roupasCb.checked = CONFIG.detectarRoupa;
+roupasCb.addEventListener("change", () => {
+  CONFIG.detectarRoupa = roupasCb.checked;
+  if (CONFIG.detectarRoupa) iniciarRoupa();
+});
+
+montarToggles();
+iniciar();
+</script>
+</body>
+</html>
